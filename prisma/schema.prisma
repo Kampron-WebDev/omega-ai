@@ -1,0 +1,17 @@
+// Prisma schema entrypoint.
+//
+// Only the generator and datasource blocks live here. Models are split into
+// `prisma/models/*.prisma` and picked up via the `schema: "prisma"` folder
+// setting in `prisma7.config.ts`.
+//
+// The datasource URL is intentionally absent: Prisma 7 resolves it from the
+// config file's `datasource.url` instead of from the schema.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
