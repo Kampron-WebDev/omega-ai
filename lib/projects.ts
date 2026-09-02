@@ -1,7 +1,7 @@
-import { normalizeEmail, type ProjectIdentity } from "@/lib/project-access"
+import { normalizeEmail } from "@/lib/email"
 import { prisma } from "@/lib/prisma"
 import { slugify } from "@/lib/slug"
-import type { Project, ProjectRole } from "@/types/project"
+import type { Project, ProjectIdentity, ProjectRole } from "@/types/project"
 
 /**
  * The project data helper: every read and every owner-checked mutation of a
@@ -67,6 +67,35 @@ async function listProjectsForIdentity(identity: ProjectIdentity): Promise<Proje
     owned: owned.map((project) => toProject(project, "owner")),
     shared: shared.map((project) => toProject(project, "collaborator")),
   }
+}
+
+/**
+ * The membership check behind `/editor/[roomId]`: resolves the project only if
+ * the caller owns it or was invited to it, and reports which. Returns `null`
+ * for both "no such project" and "not yours", so a caller cannot use it to
+ * probe which project IDs exist.
+ */
+async function findProjectForIdentity(
+  projectId: string,
+  identity: ProjectIdentity,
+): Promise<Project | null> {
+  const collaboratorMatch = identity.email
+    ? [{ collaborators: { some: { email: normalizeEmail(identity.email) } } }]
+    : []
+
+  const project = await prisma.project.findFirst({
+    where: {
+      id: projectId,
+      OR: [{ ownerId: identity.userId }, ...collaboratorMatch],
+    },
+    select: { ...PROJECT_FIELDS, ownerId: true },
+  })
+
+  if (!project) {
+    return null
+  }
+
+  return toProject(project, project.ownerId === identity.userId ? "owner" : "collaborator")
 }
 
 /** The ID comes from the schema's `cuid()` default — no sequential IDs. */
@@ -160,6 +189,7 @@ export {
   createProject,
   deleteOwnedProject,
   findOwnedProject,
+  findProjectForIdentity,
   listProjectsForIdentity,
   renameOwnedProject,
 }
