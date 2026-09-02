@@ -14,6 +14,8 @@ interface ProjectSidebarProps {
   onClose: () => void
   ownedProjects: Project[]
   sharedProjects: Project[]
+  /** The project the open workspace is showing, highlighted in both lists. */
+  activeProjectId?: string
   onCreateProject: () => void
   onRenameProject: (project: Project) => void
   onDeleteProject: (project: Project) => void
@@ -33,6 +35,7 @@ function ProjectSidebar({
   onClose,
   ownedProjects,
   sharedProjects,
+  activeProjectId,
   onCreateProject,
   onRenameProject,
   onDeleteProject,
@@ -106,6 +109,7 @@ function ProjectSidebar({
                     <ProjectListItem
                       key={project.id}
                       project={project}
+                      isActive={project.id === activeProjectId}
                       onRename={onRenameProject}
                       onDelete={onDeleteProject}
                     />
@@ -127,6 +131,7 @@ function ProjectSidebar({
                     <ProjectListItem
                       key={project.id}
                       project={project}
+                      isActive={project.id === activeProjectId}
                       onRename={onRenameProject}
                       onDelete={onDeleteProject}
                     />

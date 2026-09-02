@@ -12,6 +12,16 @@ interface Project {
   role: ProjectRole
 }
 
+/**
+ * Who a request is acting as, in the two terms the project model is addressed
+ * by: the Clerk user ID (owners) and the primary email (collaborators, per
+ * `09-share-dialog.md`'s "no local user table" rule).
+ */
+interface ProjectIdentity {
+  userId: string
+  email: string | null
+}
+
 /** Which project dialog is currently open. */
 type ProjectDialogKind = "create" | "rename" | "delete"
 
@@ -25,4 +35,10 @@ type ProjectDialogIntent =
   | { kind: "rename"; project: Project; name: string; slug: string }
   | { kind: "delete"; project: Project }
 
-export type { Project, ProjectDialogIntent, ProjectDialogKind, ProjectRole }
+export type {
+  Project,
+  ProjectDialogIntent,
+  ProjectDialogKind,
+  ProjectIdentity,
+  ProjectRole,
+}

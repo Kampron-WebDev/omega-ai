@@ -8,6 +8,8 @@ import type { Project } from "@/types/project"
 
 interface ProjectListItemProps {
   project: Project
+  /** True for the project the open workspace is showing. */
+  isActive?: boolean
   onRename: (project: Project) => void
   onDelete: (project: Project) => void
 }
@@ -19,6 +21,7 @@ const ACTIONS_VISIBILITY =
 
 function ProjectListItem({
   project,
+  isActive = false,
   onRename,
   onDelete,
 }: ProjectListItemProps) {
@@ -27,9 +30,24 @@ function ProjectListItem({
   const canManage = project.role === "owner"
 
   return (
-    <li className="group/project flex items-center gap-1 rounded-lg px-2 py-1.5 transition-colors hover:bg-muted/60 focus-within:bg-muted/60">
+    <li
+      // The row is not a link yet, so `aria-current` is the only thing telling
+      // assistive tech which project is open.
+      aria-current={isActive ? "true" : undefined}
+      className={cn(
+        "group/project flex items-center gap-1 rounded-lg px-2 py-1.5 transition-colors hover:bg-muted/60 focus-within:bg-muted/60",
+        isActive && "bg-accent-dim text-foreground"
+      )}
+    >
       <div className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-sm text-foreground">{project.name}</span>
+        <span
+          className={cn(
+            "truncate text-sm text-foreground",
+            isActive && "font-medium text-brand"
+          )}
+        >
+          {project.name}
+        </span>
         <span className="truncate font-mono text-xs text-muted-foreground">
           {project.slug}
         </span>
