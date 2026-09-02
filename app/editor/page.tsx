@@ -1,36 +1,22 @@
-"use client"
+import { redirect } from "next/navigation"
 
-import { useState } from "react"
+import { EditorHomeShell } from "@/components/editor/editor-home-shell"
+import { getCurrentIdentity } from "@/lib/project-access"
+import { listProjectsForIdentity } from "@/lib/projects"
 
-import { EditorHome } from "@/components/editor/editor-home"
-import { EditorNavbar } from "@/components/editor/editor-navbar"
-import { ProjectDialogs } from "@/components/editor/project-dialogs"
-import { ProjectSidebar } from "@/components/editor/project-sidebar"
-import { useMockProjects } from "@/hooks/use-mock-projects"
-import { useProjectDialogs } from "@/hooks/use-project-dialogs"
+/**
+ * Server Component: both project lists are read here, through the same data
+ * helper `app/api/projects` uses, and handed to the client shell as props. The
+ * initial load makes no client-side request.
+ */
+export default async function EditorPage() {
+  const identity = await getCurrentIdentity()
 
-export default function EditorPage() {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
-  const { ownedProjects, sharedProjects, applyIntent } = useMockProjects()
-  const dialogs = useProjectDialogs({ onSubmit: applyIntent })
+  if (!identity) {
+    redirect("/sign-in")
+  }
 
-  return (
-    <div className="flex h-full flex-col">
-      <EditorNavbar
-        isSidebarOpen={isSidebarOpen}
-        onToggleSidebar={() => setIsSidebarOpen((open) => !open)}
-      />
-      <ProjectSidebar
-        isOpen={isSidebarOpen}
-        onClose={() => setIsSidebarOpen(false)}
-        ownedProjects={ownedProjects}
-        sharedProjects={sharedProjects}
-        onCreateProject={dialogs.openCreateDialog}
-        onRenameProject={dialogs.openRenameDialog}
-        onDeleteProject={dialogs.openDeleteDialog}
-      />
-      <EditorHome onCreateProject={dialogs.openCreateDialog} />
-      <ProjectDialogs controller={dialogs} />
-    </div>
-  )
+  const { owned, shared } = await listProjectsForIdentity(identity)
+
+  return <EditorHomeShell ownedProjects={owned} sharedProjects={shared} />
 }
