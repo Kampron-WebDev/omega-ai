@@ -2,7 +2,12 @@
  * Error vocabulary for `app/api`. Handlers pick a code, not a status number, so
  * the same failure always answers with the same status and body shape.
  */
-type ApiErrorCode = "invalid_request" | "unauthorized" | "forbidden" | "not_found"
+type ApiErrorCode =
+  | "invalid_request"
+  | "unauthorized"
+  | "forbidden"
+  | "not_found"
+  | "conflict"
 
 interface ApiErrorBody {
   error: {
@@ -16,6 +21,7 @@ const API_ERROR_STATUS: Record<ApiErrorCode, number> = {
   unauthorized: 401,
   forbidden: 403,
   not_found: 404,
+  conflict: 409,
 }
 
 function apiError(code: ApiErrorCode, message: string): Response {
@@ -39,9 +45,18 @@ function forbidden(): Response {
   return apiError("forbidden", "Only the project owner can perform this action.")
 }
 
-function notFound(): Response {
-  return apiError("not_found", "Project not found.")
+/**
+ * Also the answer for "this project exists but you were not invited to it":
+ * a 403 there would confirm the project is real to someone who cannot see it.
+ */
+function notFound(message = "Project not found."): Response {
+  return apiError("not_found", message)
+}
+
+/** The request was valid but conflicts with what is already stored. */
+function conflict(message: string): Response {
+  return apiError("conflict", message)
 }
 
 export type { ApiErrorBody, ApiErrorCode }
-export { apiError, forbidden, invalidRequest, notFound, unauthorized }
+export { apiError, conflict, forbidden, invalidRequest, notFound, unauthorized }
