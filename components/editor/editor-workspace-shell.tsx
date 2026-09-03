@@ -6,6 +6,7 @@ import { Share2, Sparkles } from "lucide-react"
 import { EditorNavbar } from "@/components/editor/editor-navbar"
 import { ProjectDialogs } from "@/components/editor/project-dialogs"
 import { ProjectSidebar } from "@/components/editor/project-sidebar"
+import { ShareDialog } from "@/components/editor/share-dialog"
 import { Button } from "@/components/ui/button"
 import { useProjectActions } from "@/hooks/use-project-actions"
 import type { Project } from "@/types/project"
@@ -28,6 +29,7 @@ function EditorWorkspaceShell({
 }: EditorWorkspaceShellProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [isAiPanelOpen, setIsAiPanelOpen] = useState(false)
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false)
   // Deleting the project being viewed has to leave the route, not just refresh.
   const dialogs = useProjectActions({ activeProjectId: project.id })
 
@@ -39,8 +41,11 @@ function EditorWorkspaceShell({
         projectName={project.name}
         actions={
           <>
-            {/* Sharing is wired up in the share-dialog chapter. */}
-            <Button variant="ghost" size="sm" disabled>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsShareDialogOpen(true)}
+            >
               <Share2 />
               Share
             </Button>
@@ -93,6 +98,12 @@ function EditorWorkspaceShell({
           </aside>
         ) : null}
       </div>
+
+      <ShareDialog
+        open={isShareDialogOpen}
+        project={project}
+        onOpenChange={setIsShareDialogOpen}
+      />
 
       <ProjectDialogs controller={dialogs} />
     </div>

@@ -1,3 +1,5 @@
+import { normalizeEmail } from "@/lib/email"
+
 /** Applied when a create request omits a name, per `06-project-apis.md`. */
 const DEFAULT_PROJECT_NAME = "Untitled Project"
 
@@ -6,6 +8,17 @@ const DEFAULT_PROJECT_NAME = "Untitled Project"
  * unbounded string from the network never reaches the database.
  */
 const MAX_PROJECT_NAME_LENGTH = 200
+
+/** The practical maximum length of an email address (RFC 5321). */
+const MAX_EMAIL_LENGTH = 254
+
+/**
+ * Deliberately loose: something before an `@`, a dotted domain after it, and no
+ * whitespace. A stricter pattern would reject addresses that are perfectly
+ * valid, and only delivery can really prove an address exists — this is here to
+ * catch typos and to keep obvious junk out of the database.
+ */
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/
 
 type ParseResult<T> = { ok: true; value: T } | { ok: false; message: string }
 
@@ -75,5 +88,49 @@ function parseProjectName(
   return { ok: true, value: name }
 }
 
+/**
+ * Validates an `email` field coming off the network, for the share dialog's
+ * invite. Unlike a project name it has no fallback: an invite without an
+ * address is meaningless.
+ *
+ * Returns the address lowercased, because that casing is what every stored row
+ * and every session lookup compares.
+ */
+function parseCollaboratorEmail(value: unknown): ParseResult<string> {
+  if (value === undefined || value === null) {
+    return { ok: false, message: "`email` is required." }
+  }
+
+  if (typeof value !== "string") {
+    return { ok: false, message: "`email` must be a string." }
+  }
+
+  const email = normalizeEmail(value)
+
+  if (email === "") {
+    return { ok: false, message: "Enter an email address to invite." }
+  }
+
+  if (email.length > MAX_EMAIL_LENGTH) {
+    return {
+      ok: false,
+      message: `\`email\` must be at most ${MAX_EMAIL_LENGTH} characters.`,
+    }
+  }
+
+  if (!EMAIL_PATTERN.test(email)) {
+    return { ok: false, message: "Enter a valid email address." }
+  }
+
+  return { ok: true, value: email }
+}
+
 export type { ParseResult }
-export { DEFAULT_PROJECT_NAME, MAX_PROJECT_NAME_LENGTH, parseProjectName, readJsonObject }
+export {
+  DEFAULT_PROJECT_NAME,
+  MAX_EMAIL_LENGTH,
+  MAX_PROJECT_NAME_LENGTH,
+  parseCollaboratorEmail,
+  parseProjectName,
+  readJsonObject,
+}
