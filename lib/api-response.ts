@@ -40,9 +40,9 @@ function unauthorized(): Response {
   return apiError("unauthorized", "You must be signed in to perform this action.")
 }
 
-/** Signed in, but not the owner of the project being mutated. */
-function forbidden(): Response {
-  return apiError("forbidden", "Only the project owner can perform this action.")
+/** Signed in, but not allowed to perform the action. */
+function forbidden(message = "Only the project owner can perform this action."): Response {
+  return apiError("forbidden", message)
 }
 
 /**

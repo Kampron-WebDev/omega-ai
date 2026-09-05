@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Share2, Sparkles } from "lucide-react"
 
+import { CanvasRoom } from "@/components/editor/canvas-room"
 import { EditorNavbar } from "@/components/editor/editor-navbar"
 import { ProjectDialogs } from "@/components/editor/project-dialogs"
 import { ProjectSidebar } from "@/components/editor/project-sidebar"
@@ -18,9 +19,9 @@ interface EditorWorkspaceShellProps {
 }
 
 /**
- * The `/editor/[roomId]` workspace chrome: navbar, project sidebar, canvas
- * area, and the AI panel slot. Everything inside the canvas and the AI panel is
- * a placeholder — Liveblocks, React Flow, and the chat arrive in later chapters.
+ * The `/editor/[roomId]` workspace chrome: navbar, project sidebar, the
+ * Liveblocks-backed canvas (`CanvasRoom`), and the AI panel slot. The AI
+ * panel is still a placeholder — the chat arrives in a later chapter.
  */
 function EditorWorkspaceShell({
   project,
@@ -74,13 +75,8 @@ function EditorWorkspaceShell({
       />
 
       <div className="flex min-h-0 flex-1">
-        <main
-          data-slot="canvas-placeholder"
-          className="flex flex-1 items-center justify-center bg-background px-6 text-center"
-        >
-          <p className="max-w-sm text-sm text-balance text-muted-foreground">
-            The canvas for this project isn&apos;t connected yet.
-          </p>
+        <main data-slot="canvas" className="flex-1 bg-background">
+          <CanvasRoom roomId={project.id} />
         </main>
 
         {isAiPanelOpen ? (

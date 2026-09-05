@@ -44,4 +44,34 @@ async function getProjectAccess(
   return findProjectForIdentity(projectId, identity)
 }
 
-export { getCurrentIdentity, getCurrentUserId, getProjectAccess }
+/**
+ * The current session's identity plus the display fields a Liveblocks session
+ * needs: name and avatar. `getCurrentIdentity()` only resolves the email used
+ * for collaborator matching; this is the other caller of `currentUser()`, used
+ * solely by `POST /api/liveblocks-auth` to fill `UserMeta.info`.
+ *
+ * A name is never returned empty — the session token needs something to
+ * display even when Clerk has neither a name nor an email on file.
+ */
+async function getCurrentUserProfile(): Promise<
+  { userId: string; email: string | null; name: string; imageUrl: string } | null
+> {
+  const userId = await getCurrentUserId()
+
+  if (!userId) {
+    return null
+  }
+
+  const user = await currentUser()
+  const email = user?.primaryEmailAddress?.emailAddress
+  const name = (user?.fullName ?? user?.username ?? email ?? "").trim()
+
+  return {
+    userId,
+    email: email ? normalizeEmail(email) : null,
+    name: name === "" ? "Anonymous" : name,
+    imageUrl: user?.imageUrl ?? "",
+  }
+}
+
+export { getCurrentIdentity, getCurrentUserId, getCurrentUserProfile, getProjectAccess }
