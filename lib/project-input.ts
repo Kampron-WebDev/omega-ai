@@ -125,6 +125,21 @@ function parseCollaboratorEmail(value: unknown): ParseResult<string> {
   return { ok: true, value: email }
 }
 
+/**
+ * Validates the `room` field the Liveblocks client sends when requesting an
+ * auth session. It is the project's ID, not a natural-language field (see
+ * `progress-tracker.md`'s room-ID decision), so the only thing to check here
+ * is that it is a non-empty string — an unknown or inaccessible ID is caught
+ * downstream by the project access check, not here.
+ */
+function parseRoomId(value: unknown): ParseResult<string> {
+  if (typeof value !== "string" || value.trim() === "") {
+    return { ok: false, message: "`room` is required." }
+  }
+
+  return { ok: true, value: value.trim() }
+}
+
 export type { ParseResult }
 export {
   DEFAULT_PROJECT_NAME,
@@ -132,5 +147,6 @@ export {
   MAX_PROJECT_NAME_LENGTH,
   parseCollaboratorEmail,
   parseProjectName,
+  parseRoomId,
   readJsonObject,
 }
