@@ -8,7 +8,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Goal
 
-- `12-shape-panel.md` — bottom shape panel with drag-to-create nodes, now that the base canvas exists.
+- `13-node-shape.md` — replace the placeholder node renderer with real shape visuals and add the drag ghost preview.
 
 ## Completed
 
@@ -30,13 +30,15 @@ Update this file whenever the current phase, active feature, or implementation s
 
 - Base canvas — see `context/feature-specs/11-base-canvas.md`. `types/canvas.ts` adds `NODE_COLORS` (the 8 fill/text pairs from `context/ui-context.md`) and `NODE_SHAPES` (the 6 shape IDs), `CanvasNodeData` (`label`/`color`/`shape`), and the `canvasNode`/`canvasEdge` type-literal node and edge types (`CanvasNode`, `CanvasEdge`) that `useLiveblocksFlow` is generic over — no custom node/edge renderer yet, per the scope limits. `components/editor/canvas-room.tsx` is the client-side room boundary the spec asks for: `LiveblocksProvider` (`authEndpoint="/api/liveblocks-auth"`, the string form — the client itself posts `{ room }`), `RoomProvider` (`id={roomId}`, `initialPresence={{ cursor: null, thinking: false }}`), and `CanvasErrorBoundary` wrapping a `ClientSideSuspense` (fallback: "Connecting to the canvas…"). `components/editor/canvas-error-boundary.tsx` is a small class component using `getDerivedStateFromError` — `ClientSideSuspense` only catches the loading promise, not a rejected one, so an `/api/liveblocks-auth` failure or a dropped connection needs an actual error boundary above the Suspense boundary, and no `react-error-boundary` package is installed. `components/editor/canvas-flow.tsx` calls `useLiveblocksFlow<CanvasNode, CanvasEdge>({ nodes: { initial: [] }, edges: { initial: [] }, suspense: true })` and renders `<ReactFlow>` with `connectionMode={ConnectionMode.Loose}` (the spec's "loose connection behavior"), `fitView`, a dotted `<Background>`, and a `<MiniMap>` — no `Controls`, per the scope limits. `editor-workspace-shell.tsx`'s canvas placeholder `<main>` now renders `<CanvasRoom roomId={project.id} />`. `@xyflow/react` and `@liveblocks/react-flow` were already present in `package.json`/`node_modules` at the start of this unit (see the dependency note below, updated). Verified via `tsc --noEmit`, `eslint`, `next build` (route table unchanged, `/editor/[roomId]` still `ƒ`), and curl against the dev server: unauthenticated `GET /editor/{id}` still 307s to `/sign-in` and unauthenticated `POST /api/liveblocks-auth` still 401s — neither route's auth behavior changed by this unit. The authenticated path (a room actually connecting, nodes/edges actually syncing between two clients, the error boundary actually catching a real connection failure) was not exercised — needs a signed-in browser session, the same constraint noted for every phase since spec 06.
 
+- Shape panel and drag-to-create nodes — see `context/feature-specs/12-shape-panel.md`. Added `DEFAULT_NODE_SIZES` in `types/canvas.ts` for the six supported shapes (wide rectangles, square circles, and a larger square diamond), plus `lib/canvas-drag.ts` as the single drag payload contract: the custom MIME type, serializer, and a defensive parser for `{ shape, width, height }`. `components/editor/canvas-shape-panel.tsx` renders a bottom-center floating pill toolbar using React Flow's `Panel`, one draggable Lucide icon button per `NODE_SHAPES` entry, and writes the shape plus its default dimensions into the drag payload. `components/editor/canvas-flow.tsx` accepts only that payload type, translates the pointer through `screenToFlowPosition()`, creates centered `canvasNode` nodes with empty labels and the neutral default color, and submits a React Flow `add` change to `useLiveblocksFlow` so creation uses the existing collaborative storage path. IDs use `{shape}-{timestamp}-{counter}`. Added `components/editor/canvas-node.tsx` and registered it through `nodeTypes`; this unit intentionally renders every shape as the same simple centered, bordered rectangle while honoring its palette entry. Verified via `tsc --noEmit`, `eslint`, and `next build`, all clean. A real signed-in drag/drop was not exercised because the in-app browser reported no available browser target.
+
 ## In Progress
 
 - None.
 
 ## Next Up
 
-- `12-shape-panel.md` — floating bottom shape toolbar, drag-to-create nodes, and a basic (bordered-rectangle) renderer for `canvasNode` so dropped nodes become visible. First unit that needs a custom node renderer registered on `<ReactFlow nodeTypes={...}>`.
+- `13-node-shape.md` — proper CSS/SVG rendering for all six node shapes and a cursor-following drag preview, without changing the panel layout or dropped-node creation path.
 
 ## Open Questions
 

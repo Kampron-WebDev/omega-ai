@@ -2,6 +2,7 @@
 
 import "@xyflow/react/dist/style.css"
 
+import { useCallback, useRef, type DragEvent } from "react"
 import { useLiveblocksFlow } from "@liveblocks/react-flow"
 import {
   Background,
@@ -9,9 +10,32 @@ import {
   ConnectionMode,
   MiniMap,
   ReactFlow,
+  type NodeTypes,
+  type ReactFlowInstance,
 } from "@xyflow/react"
 
-import type { CanvasEdge, CanvasNode } from "@/types/canvas"
+import { CanvasNodeRenderer } from "@/components/editor/canvas-node"
+import { CanvasShapePanel } from "@/components/editor/canvas-shape-panel"
+import {
+  CANVAS_SHAPE_DRAG_TYPE,
+  parseCanvasShapeDragPayload,
+} from "@/lib/canvas-drag"
+import {
+  DEFAULT_NODE_COLOR,
+  type CanvasEdge,
+  type CanvasNode,
+} from "@/types/canvas"
+
+const nodeTypes = {
+  canvasNode: CanvasNodeRenderer,
+} satisfies NodeTypes
+
+let nodeCounter = 0
+
+function createCanvasNodeId(shape: CanvasNode["data"]["shape"]): string {
+  nodeCounter += 1
+  return `${shape}-${Date.now()}-${nodeCounter}`
+}
 
 /**
  * Renders inside `CanvasRoom`'s `ClientSideSuspense`, so Liveblocks Storage is
@@ -25,23 +49,79 @@ function CanvasFlow() {
       edges: { initial: [] },
       suspense: true,
     })
+  const flowInstanceRef = useRef<ReactFlowInstance<
+    CanvasNode,
+    CanvasEdge
+  > | null>(null)
+
+  const handleDragOver = useCallback((event: DragEvent<HTMLDivElement>) => {
+    if (!event.dataTransfer.types.includes(CANVAS_SHAPE_DRAG_TYPE)) {
+      return
+    }
+
+    event.preventDefault()
+    event.dataTransfer.dropEffect = "copy"
+  }, [])
+
+  const handleDrop = useCallback(
+    (event: DragEvent<HTMLDivElement>) => {
+      const flowInstance = flowInstanceRef.current
+      const payload = parseCanvasShapeDragPayload(
+        event.dataTransfer.getData(CANVAS_SHAPE_DRAG_TYPE)
+      )
+
+      if (!flowInstance || !payload) {
+        return
+      }
+
+      event.preventDefault()
+
+      const position = flowInstance.screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      })
+      const node: CanvasNode = {
+        id: createCanvasNodeId(payload.shape),
+        type: "canvasNode",
+        position,
+        origin: [0.5, 0.5],
+        width: payload.width,
+        height: payload.height,
+        data: {
+          label: "",
+          color: DEFAULT_NODE_COLOR,
+          shape: payload.shape,
+        },
+      }
+
+      onNodesChange([{ type: "add", item: node }])
+    },
+    [onNodesChange]
+  )
 
   return (
     <ReactFlow
       nodes={nodes}
       edges={edges}
+      nodeTypes={nodeTypes}
       onNodesChange={onNodesChange}
       onEdgesChange={onEdgesChange}
       onConnect={onConnect}
       onDelete={onDelete}
+      onInit={(instance) => {
+        flowInstanceRef.current = instance
+      }}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
       connectionMode={ConnectionMode.Loose}
       fitView
       className="bg-background"
     >
       <Background variant={BackgroundVariant.Dots} />
       <MiniMap />
+      <CanvasShapePanel />
     </ReactFlow>
   )
 }
 
-export { CanvasFlow }
+export { CanvasFlow, createCanvasNodeId }
