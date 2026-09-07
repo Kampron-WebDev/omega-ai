@@ -69,11 +69,11 @@ function CanvasFlow() {
     nodesRef.current = nodes
   }, [nodes])
 
-  const updateNodeLabel = useCallback(
-    (nodeId: string, label: string) => {
+  const updateNodeData = useCallback(
+    (nodeId: string, data: Partial<CanvasNode["data"]>) => {
       const node = nodesRef.current.find(({ id }) => id === nodeId)
 
-      if (!node || node.data.label === label) {
+      if (!node) {
         return
       }
 
@@ -81,7 +81,7 @@ function CanvasFlow() {
         {
           type: "replace",
           id: nodeId,
-          item: { ...node, data: { ...node.data, label } },
+          item: { ...node, data: { ...node.data, ...data } },
         },
       ])
     },
@@ -91,10 +91,18 @@ function CanvasFlow() {
     () =>
       ({
         canvasNode: (props: NodeProps<CanvasNode>) => (
-          <CanvasNodeRenderer {...props} onLabelChange={updateNodeLabel} />
+          <CanvasNodeRenderer
+            {...props}
+            onLabelChange={(nodeId, label) =>
+              updateNodeData(nodeId, { label })
+            }
+            onColorChange={(nodeId, color) =>
+              updateNodeData(nodeId, { color })
+            }
+          />
         ),
       }) satisfies NodeTypes,
-    [updateNodeLabel]
+    [updateNodeData]
   )
 
   const updateDragPreviewPosition = useCallback(

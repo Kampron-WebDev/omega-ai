@@ -8,7 +8,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Goal
 
-- `15-node-color-toolbar.md` — add predefined color swatches above selected canvas nodes.
+- `16-edge-behavior.md` — add node handles, custom edges, and collaborative inline edge labels.
 
 ## Completed
 
@@ -36,13 +36,15 @@ Update this file whenever the current phase, active feature, or implementation s
 
 - Node resizing and inline labels — see `context/feature-specs/14-node-editing.md`. `CanvasNodeRenderer` now renders React Flow `NodeResizer` controls only for selected nodes, with a `96 × 56` minimum and token-based dark-canvas handles/lines. Double-clicking the centered label opens an overlay textarea that keeps the existing shape geometry intact; empty nodes show `Add label`, and blur or Escape closes editing. Each keystroke issues a `replace` node change through the existing `useLiveblocksFlow` handler, so labels remain collaborative; textarea events carry `nodrag`/`nopan` guards and stop propagation to protect typing from canvas interactions. Verified via `tsc --noEmit`, ESLint, and `next build`, all clean.
 
+- Node color toolbar — see `context/feature-specs/15-node-color-toolbar.md` (also duplicated verbatim as `16-nodes-color-toolbar.md`). Added `components/editor/canvas-node-color-toolbar.tsx`, a selected-node `NodeToolbar` positioned above the node with one accessible swatch for each `NODE_COLORS` pair. Active swatches use the brand ring, and hover glow derives from each pair's text color while remaining tightly constrained. Toolbar controls are `nodrag`/`nopan` and stop pointer propagation. The canvas node callback now updates a partial data object through the existing Liveblocks-backed `replace` change; selecting a swatch stores the typed palette ID and the existing renderer immediately derives both paired fill and text colors. Verified via `tsc --noEmit`, ESLint, and `next build`, all clean.
+
 ## In Progress
 
 - None.
 
 ## Next Up
 
-- `15-node-color-toolbar.md` — predefined collaborative color swatches for selected nodes.
+- `16-edge-behavior.md` — connection handles, custom routed edges, and inline collaborative edge labels.
 
 ## Open Questions
 

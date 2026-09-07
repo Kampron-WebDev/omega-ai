@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from "react"
 import { NodeResizer, type NodeProps } from "@xyflow/react"
 
+import { CanvasNodeColorToolbar } from "@/components/editor/canvas-node-color-toolbar"
 import { CanvasNodeShape } from "@/components/editor/canvas-node-shape"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
@@ -13,6 +14,7 @@ const MIN_NODE_HEIGHT = 56
 
 interface CanvasNodeRendererProps extends NodeProps<CanvasNode> {
   onLabelChange: (nodeId: string, label: string) => void
+  onColorChange: (nodeId: string, color: CanvasNode["data"]["color"]) => void
 }
 
 function CanvasNodeRenderer({
@@ -20,6 +22,7 @@ function CanvasNodeRenderer({
   data,
   selected,
   onLabelChange,
+  onColorChange,
 }: CanvasNodeRendererProps) {
   const color =
     NODE_COLORS.find((nodeColor) => nodeColor.id === data.color) ??
@@ -61,6 +64,11 @@ function CanvasNodeRenderer({
 
   return (
     <>
+      <CanvasNodeColorToolbar
+        activeColor={data.color}
+        isVisible={selected}
+        onColorChange={(color) => onColorChange(id, color)}
+      />
       <NodeResizer
         isVisible={selected}
         minWidth={MIN_NODE_WIDTH}
