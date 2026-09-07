@@ -8,7 +8,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Goal
 
-- `13-node-shape.md` — replace the placeholder node renderer with real shape visuals and add the drag ghost preview.
+- `15-node-color-toolbar.md` — add predefined color swatches above selected canvas nodes.
 
 ## Completed
 
@@ -32,13 +32,17 @@ Update this file whenever the current phase, active feature, or implementation s
 
 - Shape panel and drag-to-create nodes — see `context/feature-specs/12-shape-panel.md`. Added `DEFAULT_NODE_SIZES` in `types/canvas.ts` for the six supported shapes (wide rectangles, square circles, and a larger square diamond), plus `lib/canvas-drag.ts` as the single drag payload contract: the custom MIME type, serializer, and a defensive parser for `{ shape, width, height }`. `components/editor/canvas-shape-panel.tsx` renders a bottom-center floating pill toolbar using React Flow's `Panel`, one draggable Lucide icon button per `NODE_SHAPES` entry, and writes the shape plus its default dimensions into the drag payload. `components/editor/canvas-flow.tsx` accepts only that payload type, translates the pointer through `screenToFlowPosition()`, creates centered `canvasNode` nodes with empty labels and the neutral default color, and submits a React Flow `add` change to `useLiveblocksFlow` so creation uses the existing collaborative storage path. IDs use `{shape}-{timestamp}-{counter}`. Added `components/editor/canvas-node.tsx` and registered it through `nodeTypes`; this unit intentionally renders every shape as the same simple centered, bordered rectangle while honoring its palette entry. Verified via `tsc --noEmit`, `eslint`, and `next build`, all clean. A real signed-in drag/drop was not exercised because the in-app browser reported no available browser target.
 
+- Node shapes and drag preview — see `context/feature-specs/13-node-shape.md`. Added `components/editor/canvas-node-shape.tsx`, the shared visual layer for real nodes and the transient preview: CSS supplies rectangle/pill/circle surfaces, while diamond/hexagon/cylinder use scalable `viewBox` SVG geometry. Node borders use the subtle border token when idle and the primary accent when selected. Added `components/editor/canvas-drag-preview.tsx`; the same custom payload already used for drops drives an exact-size, cursor-following ghost that clears on drop or drag end. `canvas-shape-panel.tsx` now reports the native drag lifecycle without changing its layout or payload, and `canvas-flow.tsx` owns the short-lived preview state while preserving its existing Liveblocks node-creation path. Verified with `tsc --noEmit`, ESLint, and `next build`, all clean.
+
+- Node resizing and inline labels — see `context/feature-specs/14-node-editing.md`. `CanvasNodeRenderer` now renders React Flow `NodeResizer` controls only for selected nodes, with a `96 × 56` minimum and token-based dark-canvas handles/lines. Double-clicking the centered label opens an overlay textarea that keeps the existing shape geometry intact; empty nodes show `Add label`, and blur or Escape closes editing. Each keystroke issues a `replace` node change through the existing `useLiveblocksFlow` handler, so labels remain collaborative; textarea events carry `nodrag`/`nopan` guards and stop propagation to protect typing from canvas interactions. Verified via `tsc --noEmit`, ESLint, and `next build`, all clean.
+
 ## In Progress
 
 - None.
 
 ## Next Up
 
-- `13-node-shape.md` — proper CSS/SVG rendering for all six node shapes and a cursor-following drag preview, without changing the panel layout or dropped-node creation path.
+- `15-node-color-toolbar.md` — predefined collaborative color swatches for selected nodes.
 
 ## Open Questions
 

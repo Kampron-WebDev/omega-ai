@@ -15,7 +15,9 @@ import { Panel } from "@xyflow/react"
 import { Button } from "@/components/ui/button"
 import {
   CANVAS_SHAPE_DRAG_TYPE,
+  getCanvasShapeDragPayload,
   serializeCanvasShapeDragPayload,
+  type CanvasShapeDragPayload,
 } from "@/lib/canvas-drag"
 import { NODE_SHAPES, type NodeShapeId } from "@/types/canvas"
 
@@ -30,16 +32,36 @@ const SHAPE_ICONS: Record<NodeShapeId, LucideIcon> = {
 
 function startShapeDrag(
   event: DragEvent<HTMLButtonElement>,
-  shape: NodeShapeId
+  shape: NodeShapeId,
+  onDragStart: (
+    payload: CanvasShapeDragPayload,
+    position: { x: number; y: number }
+  ) => void
 ) {
+  const payload = getCanvasShapeDragPayload(shape)
+
   event.dataTransfer.effectAllowed = "copy"
   event.dataTransfer.setData(
     CANVAS_SHAPE_DRAG_TYPE,
     serializeCanvasShapeDragPayload(shape)
   )
+  onDragStart(payload, { x: event.clientX, y: event.clientY })
 }
 
-function CanvasShapePanel() {
+interface CanvasShapePanelProps {
+  onShapeDragStart: (
+    payload: CanvasShapeDragPayload,
+    position: { x: number; y: number }
+  ) => void
+  onShapeDrag: (position: { x: number; y: number }) => void
+  onShapeDragEnd: () => void
+}
+
+function CanvasShapePanel({
+  onShapeDragStart,
+  onShapeDrag,
+  onShapeDragEnd,
+}: CanvasShapePanelProps) {
   return (
     <Panel position="bottom-center" className="m-4">
       <div
@@ -60,7 +82,15 @@ function CanvasShapePanel() {
               className="cursor-grab text-muted-foreground capitalize active:cursor-grabbing"
               aria-label={`Drag ${shape} onto canvas`}
               title={shape}
-              onDragStart={(event) => startShapeDrag(event, shape)}
+              onDragStart={(event) =>
+                startShapeDrag(event, shape, onShapeDragStart)
+              }
+              onDrag={(event) => {
+                if (event.clientX || event.clientY) {
+                  onShapeDrag({ x: event.clientX, y: event.clientY })
+                }
+              }}
+              onDragEnd={onShapeDragEnd}
             >
               <Icon />
             </Button>

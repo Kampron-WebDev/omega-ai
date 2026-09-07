@@ -2,7 +2,14 @@
 
 import "@xyflow/react/dist/style.css"
 
-import { useCallback, useRef, type DragEvent } from "react"
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type DragEvent,
+} from "react"
 import { useLiveblocksFlow } from "@liveblocks/react-flow"
 import {
   Background,
@@ -11,24 +18,23 @@ import {
   MiniMap,
   ReactFlow,
   type NodeTypes,
+  type NodeProps,
   type ReactFlowInstance,
 } from "@xyflow/react"
 
 import { CanvasNodeRenderer } from "@/components/editor/canvas-node"
+import { CanvasDragPreview } from "@/components/editor/canvas-drag-preview"
 import { CanvasShapePanel } from "@/components/editor/canvas-shape-panel"
 import {
   CANVAS_SHAPE_DRAG_TYPE,
   parseCanvasShapeDragPayload,
+  type CanvasShapeDragPayload,
 } from "@/lib/canvas-drag"
 import {
   DEFAULT_NODE_COLOR,
   type CanvasEdge,
   type CanvasNode,
 } from "@/types/canvas"
-
-const nodeTypes = {
-  canvasNode: CanvasNodeRenderer,
-} satisfies NodeTypes
 
 let nodeCounter = 0
 
@@ -53,6 +59,52 @@ function CanvasFlow() {
     CanvasNode,
     CanvasEdge
   > | null>(null)
+  const nodesRef = useRef(nodes)
+  const [dragPreview, setDragPreview] = useState<{
+    payload: CanvasShapeDragPayload
+    position: { x: number; y: number }
+  } | null>(null)
+
+  useEffect(() => {
+    nodesRef.current = nodes
+  }, [nodes])
+
+  const updateNodeLabel = useCallback(
+    (nodeId: string, label: string) => {
+      const node = nodesRef.current.find(({ id }) => id === nodeId)
+
+      if (!node || node.data.label === label) {
+        return
+      }
+
+      onNodesChange([
+        {
+          type: "replace",
+          id: nodeId,
+          item: { ...node, data: { ...node.data, label } },
+        },
+      ])
+    },
+    [onNodesChange]
+  )
+  const nodeTypes = useMemo(
+    () =>
+      ({
+        canvasNode: (props: NodeProps<CanvasNode>) => (
+          <CanvasNodeRenderer {...props} onLabelChange={updateNodeLabel} />
+        ),
+      }) satisfies NodeTypes,
+    [updateNodeLabel]
+  )
+
+  const updateDragPreviewPosition = useCallback(
+    (position: { x: number; y: number }) => {
+      setDragPreview((current) =>
+        current ? { ...current, position } : current
+      )
+    },
+    []
+  )
 
   const handleDragOver = useCallback((event: DragEvent<HTMLDivElement>) => {
     if (!event.dataTransfer.types.includes(CANVAS_SHAPE_DRAG_TYPE)) {
@@ -69,6 +121,8 @@ function CanvasFlow() {
       const payload = parseCanvasShapeDragPayload(
         event.dataTransfer.getData(CANVAS_SHAPE_DRAG_TYPE)
       )
+
+      setDragPreview(null)
 
       if (!flowInstance || !payload) {
         return
@@ -119,7 +173,19 @@ function CanvasFlow() {
     >
       <Background variant={BackgroundVariant.Dots} />
       <MiniMap />
-      <CanvasShapePanel />
+      <CanvasShapePanel
+        onShapeDragStart={(payload, position) =>
+          setDragPreview({ payload, position })
+        }
+        onShapeDrag={updateDragPreviewPosition}
+        onShapeDragEnd={() => setDragPreview(null)}
+      />
+      {dragPreview ? (
+        <CanvasDragPreview
+          payload={dragPreview.payload}
+          position={dragPreview.position}
+        />
+      ) : null}
     </ReactFlow>
   )
 }
