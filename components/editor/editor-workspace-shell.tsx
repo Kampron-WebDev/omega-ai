@@ -1,13 +1,15 @@
 "use client"
 
-import { useState } from "react"
-import { Share2, Sparkles } from "lucide-react"
+import { useRef, useState } from "react"
+import { LayoutTemplate, Share2, Sparkles } from "lucide-react"
 
+import type { CanvasFlowHandle } from "@/components/editor/canvas-flow"
 import { CanvasRoom } from "@/components/editor/canvas-room"
 import { EditorNavbar } from "@/components/editor/editor-navbar"
 import { ProjectDialogs } from "@/components/editor/project-dialogs"
 import { ProjectSidebar } from "@/components/editor/project-sidebar"
 import { ShareDialog } from "@/components/editor/share-dialog"
+import { StarterTemplatesModal } from "@/components/editor/starter-templates-modal"
 import { Button } from "@/components/ui/button"
 import { useProjectActions } from "@/hooks/use-project-actions"
 import type { Project } from "@/types/project"
@@ -31,6 +33,8 @@ function EditorWorkspaceShell({
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [isAiPanelOpen, setIsAiPanelOpen] = useState(false)
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false)
+  const [isTemplatesOpen, setIsTemplatesOpen] = useState(false)
+  const canvasRef = useRef<CanvasFlowHandle>(null)
   // Deleting the project being viewed has to leave the route, not just refresh.
   const dialogs = useProjectActions({ activeProjectId: project.id })
 
@@ -42,6 +46,14 @@ function EditorWorkspaceShell({
         projectName={project.name}
         actions={
           <>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsTemplatesOpen(true)}
+            >
+              <LayoutTemplate />
+              Templates
+            </Button>
             <Button
               variant="ghost"
               size="sm"
@@ -76,7 +88,7 @@ function EditorWorkspaceShell({
 
       <div className="flex min-h-0 flex-1">
         <main data-slot="canvas" className="flex-1 bg-background">
-          <CanvasRoom roomId={project.id} />
+          <CanvasRoom roomId={project.id} canvasRef={canvasRef} />
         </main>
 
         {isAiPanelOpen ? (
@@ -99,6 +111,12 @@ function EditorWorkspaceShell({
         open={isShareDialogOpen}
         project={project}
         onOpenChange={setIsShareDialogOpen}
+      />
+
+      <StarterTemplatesModal
+        open={isTemplatesOpen}
+        onOpenChange={setIsTemplatesOpen}
+        onImport={(template) => canvasRef.current?.importTemplate(template)}
       />
 
       <ProjectDialogs controller={dialogs} />

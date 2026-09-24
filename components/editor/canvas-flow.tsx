@@ -5,21 +5,27 @@ import "@xyflow/react/dist/style.css"
 import {
   useCallback,
   useEffect,
+  useImperativeHandle,
   useMemo,
   useRef,
   useState,
   type DragEvent,
+  type Ref,
 } from "react"
-import { useCanRedo, useCanUndo, useRedo, useUndo } from "@liveblocks/react"
+import {
+  useCanRedo,
+  useCanUndo,
+  useRedo,
+  useRoom,
+  useUndo,
+} from "@liveblocks/react"
 import { useLiveblocksFlow } from "@liveblocks/react-flow"
 import {
   Background,
   BackgroundVariant,
   ConnectionMode,
-  MarkerType,
   MiniMap,
   ReactFlow,
-  type DefaultEdgeOptions,
   type EdgeProps,
   type EdgeTypes,
   type NodeTypes,
@@ -32,10 +38,12 @@ import { CanvasEdgeRenderer } from "@/components/editor/canvas-edge"
 import { CanvasNodeRenderer } from "@/components/editor/canvas-node"
 import { CanvasDragPreview } from "@/components/editor/canvas-drag-preview"
 import { CanvasShapePanel } from "@/components/editor/canvas-shape-panel"
+import type { CanvasTemplate } from "@/components/editor/starter-templates"
 import {
   CANVAS_ZOOM_DURATION_MS,
   useKeyboardShortcuts,
 } from "@/hooks/use-keyboard-shortcuts"
+import { NEW_EDGE_OPTIONS } from "@/lib/canvas-edge-options"
 import {
   CANVAS_SHAPE_DRAG_TYPE,
   parseCanvasShapeDragPayload,
@@ -43,26 +51,19 @@ import {
 } from "@/lib/canvas-drag"
 import {
   DEFAULT_NODE_COLOR,
-  EDGE_COLOR,
   type CanvasEdge,
   type CanvasNode,
 } from "@/types/canvas"
 
-/**
- * React Flow merges these into every connection before `onConnect` sees it,
- * and `useLiveblocksFlow`'s `onConnect` persists the merged edge as-is — so
- * each new edge is stored already typed, labelled, and arrow-tipped.
- */
-const NEW_EDGE_OPTIONS = {
-  type: "canvasEdge",
-  markerEnd: {
-    type: MarkerType.ArrowClosed,
-    color: EDGE_COLOR,
-    width: 16,
-    height: 16,
-  },
-  data: { label: "" },
-} satisfies DefaultEdgeOptions
+/** Canvas actions the workspace chrome triggers from outside the room. */
+interface CanvasFlowHandle {
+  /** Replaces the whole canvas with the template, then fits the view to it. */
+  importTemplate: (template: CanvasTemplate) => void
+}
+
+interface CanvasFlowProps {
+  ref?: Ref<CanvasFlowHandle>
+}
 
 let nodeCounter = 0
 
@@ -76,7 +77,7 @@ function createCanvasNodeId(shape: CanvasNode["data"]["shape"]): string {
  * already loaded by the time this mounts — `useLiveblocksFlow`'s `suspense:
  * true` guarantees `nodes`/`edges` are arrays here, never `null`.
  */
-function CanvasFlow() {
+function CanvasFlow({ ref }: CanvasFlowProps) {
   const { nodes, edges, onNodesChange, onEdgesChange, onConnect, onDelete } =
     useLiveblocksFlow<CanvasNode, CanvasEdge>({
       nodes: { initial: [] },
@@ -87,6 +88,7 @@ function CanvasFlow() {
     CanvasNode,
     CanvasEdge
   > | null>(null)
+  const room = useRoom()
   const undo = useUndo()
   const redo = useRedo()
   const canUndo = useCanUndo()
@@ -175,6 +177,34 @@ function CanvasFlow() {
   )
 
   useKeyboardShortcuts({ flowInstance, undo, redo })
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      importTemplate(template) {
+        // One batch: collaborators receive the swap as a single update, and a
+        // single undo restores the previous canvas.
+        room.batch(() => {
+          onEdgesChange(
+            edgesRef.current.map(({ id }) => ({ type: "remove", id }))
+          )
+          onNodesChange(
+            nodesRef.current.map(({ id }) => ({ type: "remove", id }))
+          )
+          onNodesChange(
+            template.nodes.map((node) => ({ type: "add", item: node }))
+          )
+          onEdgesChange(
+            template.edges.map((edge) => ({ type: "add", item: edge }))
+          )
+        })
+
+        // React Flow queues this until the new nodes reach it, then fits them.
+        void flowInstance?.fitView({ duration: CANVAS_ZOOM_DURATION_MS })
+      },
+    }),
+    [room, flowInstance, onNodesChange, onEdgesChange]
+  )
 
   const updateDragPreviewPosition = useCallback(
     (position: { x: number; y: number }) => {
@@ -284,3 +314,4 @@ function CanvasFlow() {
 }
 
 export { CanvasFlow, createCanvasNodeId }
+export type { CanvasFlowHandle }

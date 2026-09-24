@@ -8,7 +8,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Goal
 
-- `18-starter-templates.md` — starter templates for new canvases.
+- `19-presence-avatars-cursors.md` — collaborator presence avatars and live cursors.
 
 ## Completed
 
@@ -42,13 +42,15 @@ Update this file whenever the current phase, active feature, or implementation s
 
 - Canvas ergonomics — see `context/feature-specs/17-canvas-ergonomics.md.md`. Added `components/editor/canvas-controls.tsx`, a pill-shaped bottom-left `Panel` (stacked above the shape panel with `z-10`) holding zoom out / fit view / zoom in and undo / redo, split by a thin divider. It is presentational: `canvas-flow.tsx` owns the React Flow instance and Liveblocks' `useUndo`/`useRedo`/`useCanUndo`/`useCanRedo`, and disabled history buttons dim through the Button's existing `disabled:opacity-50`. Added `hooks/use-keyboard-shortcuts.ts` (`useKeyboardShortcuts`), which takes the instance plus undo/redo and listens on `window`: `+`/`=` zoom in, `-` zoom out, Cmd/Ctrl+Z undo, Cmd/Ctrl+Shift+Z and Cmd/Ctrl+Y redo. It skips inputs, textareas, selects, and contenteditable targets, and zoom keys ignore Cmd/Ctrl so browser page zoom still works. Buttons and keys share `CANVAS_ZOOM_DURATION_MS` (200ms). The React Flow instance moved from a ref to state so the hook re-subscribes once `onInit` fires. Verified via `tsc --noEmit`, ESLint, and `next build`; not exercised in a browser.
 
+- Starter templates — see `context/feature-specs/18-starter-templates.md`. Added `components/editor/starter-templates.ts` with the `CanvasTemplate` type and three `CANVAS_TEMPLATES` (Microservices, CI/CD Pipeline, Event-Driven System), built by `templateNode`/`templateEdge` helpers from the shared `CanvasNode`/`CanvasEdge` types, `DEFAULT_NODE_SIZES`, and `NODE_COLORS` IDs. Nodes are centre-placed (`origin: [0.5, 0.5]`) like dropped nodes; edges spread `NEW_EDGE_OPTIONS`, now in `lib/canvas-edge-options.ts` so hand-drawn and imported edges share one definition, and name their handles by side. Added `components/editor/starter-template-preview.tsx`, an SVG thumbnail whose `viewBox` comes from the node bounds (fixed `h-32` viewport), drawing nodes by shape and palette fill and edges as straight centre-to-centre lines — no React Flow instance. Added `components/editor/starter-templates-modal.tsx`, a dialog with a scrollable card grid; each card's Import button calls `onImport`, then closes. A navbar "Templates" button in `editor-workspace-shell.tsx` opens it. Because the navbar sits outside the Liveblocks room, `CanvasFlow` exposes a `CanvasFlowHandle` (`importTemplate`) through a React 19 `ref` prop, forwarded by `CanvasRoom`; import removes every edge and node, then adds the template's, all through `useLiveblocksFlow`'s `onNodesChange`/`onEdgesChange` inside one `room.batch`, and then calls `fitView`, which React Flow queues until the new nodes arrive. Verified via `tsc --noEmit`, ESLint, and `next build`; not exercised in a browser.
+
 ## In Progress
 
 - None.
 
 ## Next Up
 
-- `18-starter-templates.md` — starter templates for new canvases.
+- `19-presence-avatars-cursors.md` — collaborator presence avatars and live cursors.
 
 ## Open Questions
 
@@ -66,6 +68,9 @@ Raised after reading all 29 feature specs. Ordered by how expensive each is to f
 - **Clerk deprecated `createRouteMatcher`.** The dev server logs: *"createRouteMatcher is deprecated and will be removed in the next major release. Use resource-based auth checks instead… Middleware-based auth checks rely on path matching, which can diverge from how Next.js routes requests and leave protected resources reachable."* `proxy.ts` still uses it for pages. `/api/(.*)` no longer goes through it at all (see Architecture Decisions), so every API route is already a resource-based check; the page routes are what remain to migrate.
 
 ## Architecture Decisions
+
+- **Template import is one Liveblocks batch.** Clearing the canvas and adding the template run inside a single `room.batch`, so collaborators receive the swap as one update (never an empty canvas in between) and one undo restores the previous canvas. Batches nest, so `useLiveblocksFlow`'s own mutations fold into it.
+- **The canvas is driven from the navbar through an imperative handle, not lifted state.** The navbar lives outside `RoomProvider`, and moving the room boundary up would change the collaborative setup spec 18 says to leave alone. `CanvasFlow` exposes `importTemplate` via `useImperativeHandle`; the handle is `null` until storage loads, so an import before the canvas connects does nothing.
 
 - **The shortcuts hook is `hooks/use-keyboard-shortcuts.ts`, not `hooks/useKeyboardShortcuts.ts`.** Spec 17 names the hook `useKeyboardShortcuts`, and the export keeps that name; the file follows the kebab-case `use-*.ts` convention every other file in `hooks/` already uses.
 - **"Sit above the shape panel" is read as stacking order.** Spec 17 also places the bar at the bottom-left while the shape panel is bottom-center, so the two share the bottom edge; the bar's `z-10` keeps it on top where they meet on narrow viewports.
