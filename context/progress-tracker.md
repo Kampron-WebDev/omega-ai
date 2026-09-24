@@ -8,7 +8,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Goal
 
-- `16-edge-behavior.md` — add node handles, custom edges, and collaborative inline edge labels.
+- `17-canvas-ergonomics.md.md` — floating zoom and undo/redo control bar, plus matching keyboard shortcuts.
 
 ## Completed
 
@@ -38,13 +38,15 @@ Update this file whenever the current phase, active feature, or implementation s
 
 - Node color toolbar — see `context/feature-specs/15-node-color-toolbar.md` (also duplicated verbatim as `16-nodes-color-toolbar.md`). Added `components/editor/canvas-node-color-toolbar.tsx`, a selected-node `NodeToolbar` positioned above the node with one accessible swatch for each `NODE_COLORS` pair. Active swatches use the brand ring, and hover glow derives from each pair's text color while remaining tightly constrained. Toolbar controls are `nodrag`/`nopan` and stop pointer propagation. The canvas node callback now updates a partial data object through the existing Liveblocks-backed `replace` change; selecting a swatch stores the typed palette ID and the existing renderer immediately derives both paired fill and text colors. Verified via `tsc --noEmit`, ESLint, and `next build`, all clean.
 
+- Edge behavior — see `context/feature-specs/16-edge-behavior.md`. Added `components/editor/canvas-node-handles.tsx`: one `source` handle per side, `id`'d by position, which connect any-to-any under the canvas's existing `ConnectionMode.Loose`; they are small light dots with a dark border, hidden at rest and faded in on node hover (a `group/node` wrapper in the node renderer) or while the node is selected. Added `components/editor/canvas-edge.tsx`, the `canvasEdge` renderer: `getSmoothStepPath` right-angle routing with rounded corners, a thin round-capped stroke at 55% opacity that goes to full on hover, selection, or edit, and a 24px invisible interaction path so the line is easy to grab without drawing thicker. Double-clicking the edge, its label, or its hint opens an auto-growing input (grid twin-span sizing) positioned by `EdgeLabelRenderer` at `getSmoothStepPath`'s `labelX`/`labelY`; blur, Enter, and Escape all save. Saved labels render as small pill badges; an active unlabeled edge shows a faint "Double-click to label" hint. The label layer is `nodrag nopan` and stops pointer propagation, the edge group is `nopan` so double-click does not zoom, and the input stops keydown propagation so Backspace cannot delete the selected edge. `canvas-flow.tsx` passes `defaultEdgeOptions` (type `canvasEdge`, closed arrow marker, `data.label: ""`), which React Flow merges into each connection before `useLiveblocksFlow`'s `onConnect` persists it; labels save through a new `updateEdgeData` that mirrors `updateNodeData` over the same Liveblocks `replace` change path. `EDGE_COLOR` (`#f8fafc`, per `ui-context.md`) and `CanvasEdgeData` live in `types/canvas.ts`. Verified via `tsc --noEmit`, ESLint, `next build`, and a grep of the built CSS confirming the handle and group-hover utilities resolve; not exercised in a browser.
+
 ## In Progress
 
 - None.
 
 ## Next Up
 
-- `16-edge-behavior.md` — connection handles, custom routed edges, and inline collaborative edge labels.
+- `17-canvas-ergonomics.md.md` — floating zoom and undo/redo control bar, plus matching keyboard shortcuts.
 
 ## Open Questions
 
@@ -62,6 +64,9 @@ Raised after reading all 29 feature specs. Ordered by how expensive each is to f
 - **Clerk deprecated `createRouteMatcher`.** The dev server logs: *"createRouteMatcher is deprecated and will be removed in the next major release. Use resource-based auth checks instead… Middleware-based auth checks rely on path matching, which can diverge from how Next.js routes requests and leave protected resources reachable."* `proxy.ts` still uses it for pages. `/api/(.*)` no longer goes through it at all (see Architecture Decisions), so every API route is already a resource-based check; the page routes are what remain to migrate.
 
 ## Architecture Decisions
+
+- **Edge labels live in `edge.data.label`, not React Flow's top-level `edge.label`.** Liveblocks' `EDGE_BASE_CONFIG` syncs top-level `label` as an atomic value, while `data` is left to the app and synced as a nested `LiveObject` — the same place node labels live. Keeping labels in `data` makes `updateEdgeData` a line-for-line mirror of `updateNodeData` and leaves room for future per-field edge data without write conflicts.
+- **Edge labels commit on finish, node labels commit per keystroke.** Spec 16 says to save on blur, Enter, or Escape, so the edge input holds a local draft; spec 14's node editor writes through on every change. Escape saves rather than cancels, per the spec's wording.
 
 - **The workspace answers "missing" and "forbidden" identically.** `findProjectForIdentity()` returns `null` for both, and `/editor/[roomId]` renders the same `AccessDenied` either way. That is spec 08's requirement read literally, and it also means the page cannot be used to enumerate project IDs — the opposite trade-off from `PATCH`/`DELETE`, which spec 06 requires to answer `403` distinctly. The difference is deliberate: the mutation routes are owner-only and already know the caller has an ID in hand, the workspace URL is guessable.
 - **The Share button ships rendered but disabled.** Spec 08 lists it as a navbar action and simultaneously forbids sharing behavior. A button that silently does nothing is worse than one that says it is not ready, so it carries `disabled` until spec 09 wires it.

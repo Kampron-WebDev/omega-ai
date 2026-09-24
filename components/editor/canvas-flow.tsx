@@ -15,13 +15,18 @@ import {
   Background,
   BackgroundVariant,
   ConnectionMode,
+  MarkerType,
   MiniMap,
   ReactFlow,
+  type DefaultEdgeOptions,
+  type EdgeProps,
+  type EdgeTypes,
   type NodeTypes,
   type NodeProps,
   type ReactFlowInstance,
 } from "@xyflow/react"
 
+import { CanvasEdgeRenderer } from "@/components/editor/canvas-edge"
 import { CanvasNodeRenderer } from "@/components/editor/canvas-node"
 import { CanvasDragPreview } from "@/components/editor/canvas-drag-preview"
 import { CanvasShapePanel } from "@/components/editor/canvas-shape-panel"
@@ -32,9 +37,26 @@ import {
 } from "@/lib/canvas-drag"
 import {
   DEFAULT_NODE_COLOR,
+  EDGE_COLOR,
   type CanvasEdge,
   type CanvasNode,
 } from "@/types/canvas"
+
+/**
+ * React Flow merges these into every connection before `onConnect` sees it,
+ * and `useLiveblocksFlow`'s `onConnect` persists the merged edge as-is — so
+ * each new edge is stored already typed, labelled, and arrow-tipped.
+ */
+const NEW_EDGE_OPTIONS = {
+  type: "canvasEdge",
+  markerEnd: {
+    type: MarkerType.ArrowClosed,
+    color: EDGE_COLOR,
+    width: 16,
+    height: 16,
+  },
+  data: { label: "" },
+} satisfies DefaultEdgeOptions
 
 let nodeCounter = 0
 
@@ -60,6 +82,7 @@ function CanvasFlow() {
     CanvasEdge
   > | null>(null)
   const nodesRef = useRef(nodes)
+  const edgesRef = useRef(edges)
   const [dragPreview, setDragPreview] = useState<{
     payload: CanvasShapeDragPayload
     position: { x: number; y: number }
@@ -68,6 +91,10 @@ function CanvasFlow() {
   useEffect(() => {
     nodesRef.current = nodes
   }, [nodes])
+
+  useEffect(() => {
+    edgesRef.current = edges
+  }, [edges])
 
   const updateNodeData = useCallback(
     (nodeId: string, data: Partial<CanvasNode["data"]>) => {
@@ -87,6 +114,24 @@ function CanvasFlow() {
     },
     [onNodesChange]
   )
+  const updateEdgeData = useCallback(
+    (edgeId: string, data: Partial<CanvasEdge["data"]>) => {
+      const edge = edgesRef.current.find(({ id }) => id === edgeId)
+
+      if (!edge) {
+        return
+      }
+
+      onEdgesChange([
+        {
+          type: "replace",
+          id: edgeId,
+          item: { ...edge, data: { label: "", ...edge.data, ...data } },
+        },
+      ])
+    },
+    [onEdgesChange]
+  )
   const nodeTypes = useMemo(
     () =>
       ({
@@ -103,6 +148,20 @@ function CanvasFlow() {
         ),
       }) satisfies NodeTypes,
     [updateNodeData]
+  )
+  const edgeTypes = useMemo(
+    () =>
+      ({
+        canvasEdge: (props: EdgeProps<CanvasEdge>) => (
+          <CanvasEdgeRenderer
+            {...props}
+            onLabelChange={(edgeId, label) =>
+              updateEdgeData(edgeId, { label })
+            }
+          />
+        ),
+      }) satisfies EdgeTypes,
+    [updateEdgeData]
   )
 
   const updateDragPreviewPosition = useCallback(
@@ -166,6 +225,8 @@ function CanvasFlow() {
       nodes={nodes}
       edges={edges}
       nodeTypes={nodeTypes}
+      edgeTypes={edgeTypes}
+      defaultEdgeOptions={NEW_EDGE_OPTIONS}
       onNodesChange={onNodesChange}
       onEdgesChange={onEdgesChange}
       onConnect={onConnect}

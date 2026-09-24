@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from
 import { NodeResizer, type NodeProps } from "@xyflow/react"
 
 import { CanvasNodeColorToolbar } from "@/components/editor/canvas-node-color-toolbar"
+import { CanvasNodeHandles } from "@/components/editor/canvas-node-handles"
 import { CanvasNodeShape } from "@/components/editor/canvas-node-shape"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
@@ -63,7 +64,7 @@ function CanvasNodeRenderer({
   }
 
   return (
-    <>
+    <div className="group/node h-full w-full">
       <CanvasNodeColorToolbar
         activeColor={data.color}
         isVisible={selected}
@@ -112,7 +113,8 @@ function CanvasNodeRenderer({
           )
         }
       />
-    </>
+      <CanvasNodeHandles isVisible={selected} />
+    </div>
   )
 }
 

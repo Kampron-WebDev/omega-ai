@@ -32,6 +32,14 @@ const NODE_SHAPES = [
 
 type NodeShapeId = (typeof NODE_SHAPES)[number]
 
+/**
+ * The edge stroke and arrowhead color, per `context/ui-context.md`'s edge
+ * style. A raw hex for the same reason as `NODE_COLORS`: the arrowhead marker
+ * is persisted into Liveblocks Storage with each edge, so it has to be a
+ * concrete color rather than a CSS token.
+ */
+const EDGE_COLOR = "#f8fafc"
+
 const DEFAULT_NODE_COLOR: NodeColorId = "neutral"
 const DEFAULT_NODE_SHAPE: NodeShapeId = "rectangle"
 
@@ -56,23 +64,29 @@ interface CanvasNodeData extends Record<string, unknown> {
   shape: NodeShapeId
 }
 
+interface CanvasEdgeData extends Record<string, unknown> {
+  label: string
+}
+
 /**
  * The canvas's React Flow node and edge types, synced through Liveblocks
  * Storage by `useLiveblocksFlow` and rendered by the custom type registry in
  * `components/editor/canvas-flow.tsx`.
  */
 type CanvasNode = Node<CanvasNodeData, "canvasNode">
-type CanvasEdge = Edge<Record<string, never>, "canvasEdge">
+type CanvasEdge = Edge<CanvasEdgeData, "canvasEdge">
 
 export {
   DEFAULT_NODE_COLOR,
   DEFAULT_NODE_SHAPE,
   DEFAULT_NODE_SIZES,
+  EDGE_COLOR,
   NODE_COLORS,
   NODE_SHAPES,
 }
 export type {
   CanvasEdge,
+  CanvasEdgeData,
   CanvasNode,
   CanvasNodeData,
   CanvasNodeSize,
