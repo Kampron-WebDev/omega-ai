@@ -1,13 +1,19 @@
 "use client"
 
+import type { Ref } from "react"
 import { ClientSideSuspense, LiveblocksProvider, RoomProvider } from "@liveblocks/react"
 
 import { CanvasErrorBoundary } from "@/components/editor/canvas-error-boundary"
-import { CanvasFlow } from "@/components/editor/canvas-flow"
+import {
+  CanvasFlow,
+  type CanvasFlowHandle,
+} from "@/components/editor/canvas-flow"
 
 interface CanvasRoomProps {
   /** The project's cuid — see the room-ID decision in `progress-tracker.md`. */
   roomId: string
+  /** Forwarded to the flow; stays `null` until the room's storage has loaded. */
+  canvasRef?: Ref<CanvasFlowHandle>
 }
 
 /**
@@ -15,7 +21,7 @@ interface CanvasRoomProps {
  * `LiveblocksProvider` posts `{ room }` to `/api/liveblocks-auth` (the string
  * form of `authEndpoint`) whenever a client under it connects to a room.
  */
-function CanvasRoom({ roomId }: CanvasRoomProps) {
+function CanvasRoom({ roomId, canvasRef }: CanvasRoomProps) {
   return (
     <LiveblocksProvider authEndpoint="/api/liveblocks-auth">
       <RoomProvider id={roomId} initialPresence={{ cursor: null, thinking: false }}>
@@ -29,7 +35,7 @@ function CanvasRoom({ roomId }: CanvasRoomProps) {
               </div>
             }
           >
-            <CanvasFlow />
+            <CanvasFlow ref={canvasRef} />
           </ClientSideSuspense>
         </CanvasErrorBoundary>
       </RoomProvider>
