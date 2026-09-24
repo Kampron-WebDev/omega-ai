@@ -10,6 +10,7 @@ import {
   useState,
   type DragEvent,
 } from "react"
+import { useCanRedo, useCanUndo, useRedo, useUndo } from "@liveblocks/react"
 import { useLiveblocksFlow } from "@liveblocks/react-flow"
 import {
   Background,
@@ -26,10 +27,15 @@ import {
   type ReactFlowInstance,
 } from "@xyflow/react"
 
+import { CanvasControls } from "@/components/editor/canvas-controls"
 import { CanvasEdgeRenderer } from "@/components/editor/canvas-edge"
 import { CanvasNodeRenderer } from "@/components/editor/canvas-node"
 import { CanvasDragPreview } from "@/components/editor/canvas-drag-preview"
 import { CanvasShapePanel } from "@/components/editor/canvas-shape-panel"
+import {
+  CANVAS_ZOOM_DURATION_MS,
+  useKeyboardShortcuts,
+} from "@/hooks/use-keyboard-shortcuts"
 import {
   CANVAS_SHAPE_DRAG_TYPE,
   parseCanvasShapeDragPayload,
@@ -77,10 +83,14 @@ function CanvasFlow() {
       edges: { initial: [] },
       suspense: true,
     })
-  const flowInstanceRef = useRef<ReactFlowInstance<
+  const [flowInstance, setFlowInstance] = useState<ReactFlowInstance<
     CanvasNode,
     CanvasEdge
   > | null>(null)
+  const undo = useUndo()
+  const redo = useRedo()
+  const canUndo = useCanUndo()
+  const canRedo = useCanRedo()
   const nodesRef = useRef(nodes)
   const edgesRef = useRef(edges)
   const [dragPreview, setDragPreview] = useState<{
@@ -164,6 +174,8 @@ function CanvasFlow() {
     [updateEdgeData]
   )
 
+  useKeyboardShortcuts({ flowInstance, undo, redo })
+
   const updateDragPreviewPosition = useCallback(
     (position: { x: number; y: number }) => {
       setDragPreview((current) =>
@@ -184,7 +196,6 @@ function CanvasFlow() {
 
   const handleDrop = useCallback(
     (event: DragEvent<HTMLDivElement>) => {
-      const flowInstance = flowInstanceRef.current
       const payload = parseCanvasShapeDragPayload(
         event.dataTransfer.getData(CANVAS_SHAPE_DRAG_TYPE)
       )
@@ -217,7 +228,7 @@ function CanvasFlow() {
 
       onNodesChange([{ type: "add", item: node }])
     },
-    [onNodesChange]
+    [flowInstance, onNodesChange]
   )
 
   return (
@@ -231,9 +242,7 @@ function CanvasFlow() {
       onEdgesChange={onEdgesChange}
       onConnect={onConnect}
       onDelete={onDelete}
-      onInit={(instance) => {
-        flowInstanceRef.current = instance
-      }}
+      onInit={setFlowInstance}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
       connectionMode={ConnectionMode.Loose}
@@ -242,6 +251,21 @@ function CanvasFlow() {
     >
       <Background variant={BackgroundVariant.Dots} />
       <MiniMap />
+      <CanvasControls
+        onZoomIn={() =>
+          void flowInstance?.zoomIn({ duration: CANVAS_ZOOM_DURATION_MS })
+        }
+        onZoomOut={() =>
+          void flowInstance?.zoomOut({ duration: CANVAS_ZOOM_DURATION_MS })
+        }
+        onFitView={() =>
+          void flowInstance?.fitView({ duration: CANVAS_ZOOM_DURATION_MS })
+        }
+        onUndo={undo}
+        onRedo={redo}
+        canUndo={canUndo}
+        canRedo={canRedo}
+      />
       <CanvasShapePanel
         onShapeDragStart={(payload, position) =>
           setDragPreview({ payload, position })
