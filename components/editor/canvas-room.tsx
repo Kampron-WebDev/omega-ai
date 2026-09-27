@@ -8,6 +8,7 @@ import {
   CanvasFlow,
   type CanvasFlowHandle,
 } from "@/components/editor/canvas-flow"
+import { CanvasPresence } from "@/components/editor/canvas-presence"
 
 interface CanvasRoomProps {
   /** The project's cuid — see the room-ID decision in `progress-tracker.md`. */
@@ -25,19 +26,22 @@ function CanvasRoom({ roomId, canvasRef }: CanvasRoomProps) {
   return (
     <LiveblocksProvider authEndpoint="/api/liveblocks-auth">
       <RoomProvider id={roomId} initialPresence={{ cursor: null, thinking: false }}>
-        <CanvasErrorBoundary>
-          <ClientSideSuspense
-            fallback={
-              <div className="flex h-full items-center justify-center bg-background">
-                <p className="text-sm text-muted-foreground">
-                  Connecting to the canvas…
-                </p>
-              </div>
-            }
-          >
-            <CanvasFlow ref={canvasRef} />
-          </ClientSideSuspense>
-        </CanvasErrorBoundary>
+        <div className="relative h-full">
+          <CanvasErrorBoundary>
+            <ClientSideSuspense
+              fallback={
+                <div className="flex h-full items-center justify-center bg-background">
+                  <p className="text-sm text-muted-foreground">
+                    Connecting to the canvas…
+                  </p>
+                </div>
+              }
+            >
+              <CanvasFlow ref={canvasRef} />
+            </ClientSideSuspense>
+          </CanvasErrorBoundary>
+          <CanvasPresence />
+        </div>
       </RoomProvider>
     </LiveblocksProvider>
   )

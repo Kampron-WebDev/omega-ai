@@ -18,6 +18,11 @@ interface EditorNavbarProps {
    * sidebar actually do.
    */
   actions?: ReactNode
+  /**
+   * The workspace turns this off: its canvas renders the UserButton at the end
+   * of the participant avatars instead, so the current user appears once.
+   */
+  showUserButton?: boolean
   className?: string
 }
 
@@ -26,6 +31,7 @@ function EditorNavbar({
   onToggleSidebar,
   projectName,
   actions,
+  showUserButton = true,
   className,
 }: EditorNavbarProps) {
   return (
@@ -55,7 +61,7 @@ function EditorNavbar({
       </div>
       <div className="flex flex-1 items-center justify-end gap-2">
         {actions}
-        <UserButton />
+        {showUserButton ? <UserButton /> : null}
       </div>
     </nav>
   )

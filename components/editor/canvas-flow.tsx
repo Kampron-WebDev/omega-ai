@@ -10,6 +10,7 @@ import {
   useRef,
   useState,
   type DragEvent,
+  type MouseEvent,
   type Ref,
 } from "react"
 import {
@@ -18,6 +19,7 @@ import {
   useRedo,
   useRoom,
   useUndo,
+  useUpdateMyPresence,
 } from "@liveblocks/react"
 import { useLiveblocksFlow } from "@liveblocks/react-flow"
 import {
@@ -34,6 +36,7 @@ import {
 } from "@xyflow/react"
 
 import { CanvasControls } from "@/components/editor/canvas-controls"
+import { CanvasCursors } from "@/components/editor/canvas-cursors"
 import { CanvasEdgeRenderer } from "@/components/editor/canvas-edge"
 import { CanvasNodeRenderer } from "@/components/editor/canvas-node"
 import { CanvasDragPreview } from "@/components/editor/canvas-drag-preview"
@@ -93,6 +96,7 @@ function CanvasFlow({ ref }: CanvasFlowProps) {
   const redo = useRedo()
   const canUndo = useCanUndo()
   const canRedo = useCanRedo()
+  const updateMyPresence = useUpdateMyPresence()
   const nodesRef = useRef(nodes)
   const edgesRef = useRef(edges)
   const [dragPreview, setDragPreview] = useState<{
@@ -215,6 +219,28 @@ function CanvasFlow({ ref }: CanvasFlowProps) {
     []
   )
 
+  // Flow coordinates, not screen ones: every participant has their own pan
+  // and zoom, so only a diagram position means the same spot to all of them.
+  const handleMouseMove = useCallback(
+    (event: MouseEvent<HTMLDivElement>) => {
+      if (!flowInstance) {
+        return
+      }
+
+      updateMyPresence({
+        cursor: flowInstance.screenToFlowPosition({
+          x: event.clientX,
+          y: event.clientY,
+        }),
+      })
+    },
+    [flowInstance, updateMyPresence]
+  )
+
+  const handleMouseLeave = useCallback(() => {
+    updateMyPresence({ cursor: null })
+  }, [updateMyPresence])
+
   const handleDragOver = useCallback((event: DragEvent<HTMLDivElement>) => {
     if (!event.dataTransfer.types.includes(CANVAS_SHAPE_DRAG_TYPE)) {
       return
@@ -275,12 +301,15 @@ function CanvasFlow({ ref }: CanvasFlowProps) {
       onInit={setFlowInstance}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
       connectionMode={ConnectionMode.Loose}
       fitView
       className="bg-background"
     >
       <Background variant={BackgroundVariant.Dots} />
       <MiniMap />
+      <CanvasCursors />
       <CanvasControls
         onZoomIn={() =>
           void flowInstance?.zoomIn({ duration: CANVAS_ZOOM_DURATION_MS })

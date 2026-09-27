@@ -3,6 +3,7 @@
 import { Loader2, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { initialsFromName } from "@/lib/initials"
 import { cn } from "@/lib/utils"
 import type { Collaborator } from "@/types/collaborator"
 
@@ -22,17 +23,10 @@ interface CollaboratorListItemProps {
  * the email. Falls back to `?` for an address that starts with punctuation.
  */
 function initialsFor(collaborator: Collaborator): string {
-  if (collaborator.name) {
-    const letters = collaborator.name
-      .split(/\s+/)
-      .map((word) => word.match(/\p{L}|\p{N}/u)?.[0] ?? "")
-      .filter((letter) => letter !== "")
-      .slice(0, 2)
-      .join("")
+  const fromName = collaborator.name ? initialsFromName(collaborator.name) : null
 
-    if (letters !== "") {
-      return letters.toUpperCase()
-    }
+  if (fromName) {
+    return fromName
   }
 
   const fromEmail = collaborator.email.match(/\p{L}|\p{N}/gu)?.slice(0, 2).join("")

@@ -44,6 +44,7 @@ function EditorWorkspaceShell({
         isSidebarOpen={isSidebarOpen}
         onToggleSidebar={() => setIsSidebarOpen((open) => !open)}
         projectName={project.name}
+        showUserButton={false}
         actions={
           <>
             <Button
