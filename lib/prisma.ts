@@ -1,6 +1,7 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 
 import { PrismaClient } from "@/generated/prisma/client";
+import { getServerEnv } from "@/lib/env";
 
 /**
  * Prisma Postgres / Accelerate connection strings use this scheme. Anything
@@ -10,13 +11,7 @@ import { PrismaClient } from "@/generated/prisma/client";
 const ACCELERATE_URL_PREFIX = "prisma+postgres://";
 
 function createPrismaClient(): PrismaClient {
-  const databaseUrl = process.env.DATABASE_URL;
-
-  if (!databaseUrl) {
-    throw new Error(
-      "DATABASE_URL is not set. Add it to .env.local before using the Prisma client.",
-    );
-  }
+  const databaseUrl = getServerEnv().DATABASE_URL;
 
   if (databaseUrl.startsWith(ACCELERATE_URL_PREFIX)) {
     return new PrismaClient({ accelerateUrl: databaseUrl });

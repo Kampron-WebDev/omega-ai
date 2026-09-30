@@ -75,7 +75,7 @@ A checklist a reviewer can verify.
 
 ## Roadmap
 
-Specs 01–20 are complete (see `progress-tracker.md`).
+Specs 01–21 are complete (see `progress-tracker.md`).
 
 ### Phase 4 — Foundations and canvas durability
 

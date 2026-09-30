@@ -20,6 +20,40 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Development
+
+### Environment variables
+
+Copy `.env.example` to `.env.local` and fill in every value. The file comments say where each one comes from.
+
+| Variable | Used for |
+| --- | --- |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk, in the browser |
+| `CLERK_SECRET_KEY` | Clerk, on the server |
+| `NEXT_PUBLIC_CLERK_SIGN_IN_URL`, `NEXT_PUBLIC_CLERK_SIGN_UP_URL` | Optional auth page paths (default `/sign-in`, `/sign-up`) |
+| `DATABASE_URL` | PostgreSQL through Prisma |
+| `LIVEBLOCKS_SECRET_KEY` | Liveblocks room auth and server access |
+
+Server code reads variables only through `getServerEnv()` in `lib/env.ts`. It validates them on first use and throws one error naming every missing variable.
+
+### Checks
+
+```bash
+npm run check   # lint, typecheck, and unit tests
+npm run build   # production build
+```
+
+`npm test` runs Vitest once and `npm run test:watch` keeps it running. Tests sit next to the module they cover (`lib/slug.test.ts`) and never touch a database or the network. Hook and component tests opt into a browser-like environment with a `// @vitest-environment jsdom` header.
+
+### Continuous integration
+
+`.github/workflows/ci.yml` runs on pushes to `development` and `main` and on pull requests, on Node 24.
+
+- **check:** `npm ci`, lint, typecheck, and tests. It also runs `npm audit` for production dependencies, which reports but does not fail the job yet.
+- **build:** `npm run build`, using the `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, and `LIVEBLOCKS_SECRET_KEY` repository secrets. If any of them is missing, the job skips the build and leaves a notice that says which ones.
+
+CI uses a placeholder `DATABASE_URL`, because `prisma generate` needs one during install but never connects.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

@@ -1,5 +1,7 @@
 import { Liveblocks } from "@liveblocks/node"
 
+import { getServerEnv } from "@/lib/env"
+
 /**
  * A fixed, visually distinct set of cursor colors. This is a data value sent
  * to clients for rendering, not a styling concern, so raw hex values are
@@ -32,15 +34,7 @@ function getCursorColor(userId: string): string {
 }
 
 function createLiveblocksClient(): Liveblocks {
-  const secret = process.env.LIVEBLOCKS_SECRET_KEY
-
-  if (!secret) {
-    throw new Error(
-      "LIVEBLOCKS_SECRET_KEY is not set. Add it to .env.local before using Liveblocks.",
-    )
-  }
-
-  return new Liveblocks({ secret })
+  return new Liveblocks({ secret: getServerEnv().LIVEBLOCKS_SECRET_KEY })
 }
 
 /**
