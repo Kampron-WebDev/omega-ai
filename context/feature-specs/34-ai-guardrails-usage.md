@@ -29,18 +29,18 @@ Make AI features safe to operate: per-user rate limits, a way to cancel a run, a
 
 2. **Cancellation.**
    - `POST /api/ai/runs/[runId]/cancel`: allowed for the requester or the project owner.
-   - It calls `runs.cancel`, marks the run CANCELLED, publishes status `cancelled` ("{name} cancelled the request"), clears agent presence, and posts a system chat message. The last three are done by the **route**, because a cancelled task may never run its own cleanup.
+   - Atomically revoke the run's publication lease/epoch and set CANCELLING before requesting provider cancellation. Persist an idempotent cancellation/cleanup intent; a reconciler completes remote cancellation, status, presence and canonical chat if the route dies. Unknown in-flight effects move to RECONCILING and prevent a new conflicting writer until resolved. Only confirmed stop/cleanup becomes CANCELLED. A fenced worker cannot publish success or further graph changes.
    - The status strip shows a Cancel button (a small X) for the requester and the owner.
    - A cancelled design run may have written nodes already. The system message carries the run's `checkpointId` (looked up from the `AI_RUN` checkpoint), so "Undo AI changes" is offered.
 
 3. **Stale-run reaper: `trigger/reap-stale-runs.ts`.**
    - A scheduled task every 10 minutes.
-   - Runs still QUEUED or RUNNING after 15 minutes are marked FAILED with "Timed out", a status `failed` is published to their room, and presence is cleared.
+   - Select non-terminal runs with expired heartbeat leases, reconcile provider state, revoke/fence the old attempt and cancel it before releasing conflicting work. Long workflows with fresh heartbeats are not killed for being older than 15 minutes. An unknown remote outcome remains reconciling.
    - This is what makes `AI_STATUS_STALE_MS` a true backstop and not the only guard.
 
 4. **Usage accounting.**
    - Add `model String?`, `inputTokens Int?`, `outputTokens Int?`, and `durationMs Int?` to `TaskRun`.
-   - Every AI task records them from the SDK result when the run finishes, in both the success and failure paths.
+   - Aggregate usage for every model call, repair and retry, with model/version and recorded pricing version. Record partial usage on failure; reserve conservative token/cost ceilings before paid calls. Count-based rate limits alone are not a spending budget. Spec 55 adds owner-facing policy controls.
 
 5. **Structured logging: `lib/logger.ts`.**
    - JSON lines with `level`, `msg`, `runId`, `projectId`, `userId`, `task`, and `durationMs`.
@@ -50,7 +50,7 @@ Make AI features safe to operate: per-user rate limits, a way to cancel a run, a
 6. **Input caps.** Centralize them in `lib/ai/limits.ts`:
    - prompt: 4000 characters
    - chat history window: 20 messages / 12,000 characters
-   - brief: `briefToMarkdown` truncated at 16,000 characters, with a note in the prompt that it was truncated
+   - brief: 16,000-character initial context budget; select relevant sections and retain all applicable accepted constraints. If mandatory material cannot fit, partition the task or fail with a capacity explanation. Never silently truncate acceptance criteria or constraints; spec 53 generalizes selection/provenance.
 
    The design prompt builder uses these constants.
 
@@ -58,7 +58,7 @@ Make AI features safe to operate: per-user rate limits, a way to cancel a run, a
 
 | Route | Access | Success | Errors |
 | --- | --- | --- | --- |
-| `POST /api/ai/runs/[runId]/cancel` | requester or owner | `200 { cancelled: true }` | 401, 404, 409 (already finished) |
+| `POST /api/ai/runs/[runId]/cancel` | requester or owner, with current project access | `202 { runId, phase: "cancelling" \| "reconciling" }`, or `200 { cancelled: true }` if confirmed | 401, 404, 409 (already finished) |
 | `POST /api/ai/design` (updated) | member | `202` | adds 429 |
 
 ## Scope limits
@@ -84,6 +84,6 @@ Make AI features safe to operate: per-user rate limits, a way to cancel a run, a
 
 - [ ] Hitting a limit shows a clear message and a retry time.
 - [ ] Cancel stops a run, and the room sees it immediately.
-- [ ] A killed worker's run clears itself within about 15 minutes.
+- [ ] A killed worker is fenced and reconciled within the documented heartbeat-expiry plus reaper interval; no new writer starts while the old effect outcome is uncertain.
 - [ ] `TaskRun` rows carry model, tokens, and duration.
 - [ ] Definition of done in `context/feature-specs/README.md`.

@@ -4,7 +4,7 @@
 
 Build this project incrementally using a spec-driven workflow. Context files define what to build, how to build it, and what the current state of progress is. Always implement against these specs — do not infer or invent behavior from scratch.
 
-Specs live in `context/feature-specs/` and are built strictly in numeric order. `context/feature-specs/README.md` holds the roadmap, the shared conventions every spec relies on, the spec template, and the definition of done. Read it before starting any spec.
+Specs live in `context/feature-specs/` and use numeric order by default. Dependencies remain mandatory; release-specific quality slices from 63–65 are implemented alongside the earlier capabilities they protect. The README defines the gates. Specs 47–65 are capability milestones: record bounded implementation sub-units before starting, and leave the parent incomplete until all acceptance criteria pass.
 
 ## Starting a Unit
 
@@ -74,3 +74,12 @@ Progress state must reflect the actual state of the implementation, not the inte
 
 - New work gets a spec in the template from `context/feature-specs/README.md` before it is built.
 - Insert new specs at the end, or renumber the specs that are not yet built and update every reference in `progress-tracker.md` and the README roadmap. Never renumber a completed spec.
+- Product/roadmap reviews may update multiple unimplemented specs and context documents together when explicitly requested; this does not authorize implementing all those capabilities in the same change.
+- For documentation-only changes, validate numbering, dependencies, links, cross-document invariants and implementation status instead of repeating unrelated application tests.
+
+## Agentic product workflow (planned)
+
+- Follow `context/agentic-platform-contracts.md` for stable IDs, baselines, readiness, evidence and authority. This is the contract Omega generates for target projects; do not assume its future runtime already exists in Omega.
+- Separate proposed, accepted, implemented, verified, integrated and released. Only update the tracker to a status supported by evidence.
+- Autonomous planning executes within a durable owner policy. Proceed with preauthorized routine decisions, record assumptions, and stop for unresolved blocking choices or authority/budget limits. Never infer deployment permission from planning permission.
+- Each session leaves a handover with pinned baseline/commit, completed checks, blockers, changed files and the next dependency-ready action. A fresh agent validates that state before resuming.

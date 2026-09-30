@@ -100,6 +100,10 @@ shadcn/ui on top of Tailwind. No custom design system. Components live in `compo
 - Modals and dialogs: centered overlay, `rounded-3xl`, dark background with backdrop blur.
 - Navbar: top bar with dark background and bottom border.
 
-## Icons
+## Planned platform navigation (spec 65)
+
+The canvas and floating chat remain useful, but the expanded product needs Overview, Requirements, Design, Plan and Delivery surfaces rather than an ever-growing set of narrow sidebar tabs. Show source revision, readiness, blockers and next action where decisions are made. Manual, collaborative and autonomous modes have visible policy/status controls. Provide text/list alternatives for essential canvas interactions, keyboard navigation, reduced-motion support and responsive layouts. Draft, ready, reported, verified, integrated and released must be visibly distinct. Introduce this navigation incrementally with the relevant features and validate it at each release gate.
+
+## Icons (existing convention)
 
 Lucide React. Stroke-based icons only — no filled variants. Icon sizes: `h-4 w-4` for inline, `h-5 w-5` for buttons, `h-8 w-8` for feature icons in empty states.

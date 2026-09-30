@@ -18,7 +18,7 @@ One click produces a zip that turns an empty folder into a repository ready for 
 ## Implementation
 
 1. **Static templates: `lib/agent-pack/templates.ts`.** Plain template functions, with no LLM involved:
-   - `agentsMd({ projectName })`: the read order of the context files, "one unit at a time", the definition of done, "update the progress tracker", and "ask before committing".
+   - `agentsMd({ projectName })`: read order, dependency-aware unit workflow, definition of done, tracker updates and explicit authority policy. Default to a sequential workflow; distinguish local commits, external publication and deployment. Do not force repeated approvals for actions the owner already authorized.
    - `claudeMd()`: `@AGENTS.md`.
    - `workflowRules()`: adapted from this repository's `ai-workflow-rules.md`.
    - `progressTracker({ units })`: Current Goal is unit 1, Next Up lists every unit in order, and Open Questions carries the spec's open questions.
@@ -36,10 +36,10 @@ One click produces a zip that turns an empty folder into a repository ready for 
    context/ui-context.md                ← only if present
    context/ai-workflow-rules.md         ← template
    context/progress-tracker.md          ← template
-   context/technical-spec.md            ← latest spec, if any
+   context/technical-spec.md            ← exact spec linked to this plan, if any
    context/brief.md                     ← briefToMarkdown
    context/architecture.mmd             ← graphToMermaid
-   context/canvas.json                  ← snapshot v2 of the current design
+   context/canvas.json                  ← snapshot from the plan's pinned generation input
    context/feature-specs/README.md      ← phases + unit index table
    context/feature-specs/01-{slug}.md … ← plan units, zero-padded to 2 digits
    ```
@@ -47,7 +47,7 @@ One click produces a zip that turns an empty folder into a repository ready for 
    Paths are validated: relative, no `..`, and slugs re-sanitized.
 
 3. **Route: `GET /api/projects/[projectId]/plans/[planId]/export`** (member).
-   - Reads the plan, the latest spec (or the spec linked to the plan through `specId`), and the room graph and brief (server-side), then builds and zips.
+   - Reads the plan and only its pinned generation input, linked spec and recorded project metadata. Never read a current graph/brief or fall back to a latest spec. Record schema version, source IDs/hashes, file manifest and readiness in the pack; v2 in spec 54 expands this.
    - Responds with `Content-Type: application/zip`, `Content-Disposition: attachment; filename="{slug}-agent-pack.zip"`, and `Cache-Control: private, no-store`.
    - No LLM call, so this is allowed in a request handler. The route must finish in under 10 s for the largest plan; measure it.
 
@@ -59,8 +59,8 @@ One click produces a zip that turns an empty folder into a repository ready for 
 
 ## Edge cases
 
-- A plan whose spec was deleted: export without `technical-spec.md` and note it in `README.md`.
-- The canvas changed since the plan was made: include a line in `README.md` ("Design changed after this plan was generated on {date}").
+- A mandatory pinned artifact is missing: fail ready export with 422 and actionable details. Draft export may omit it only with a blocker manifest and prominent draft label. Individual deletion of referenced sources is prohibited by spec 36.
+- Live changes do not alter a pinned pack. Show staleness in the export UI; use a new plan/input revision to include the changes. Include the same manifest through MCP so file reads cannot drift between versions.
 
 ## Tests
 

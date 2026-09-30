@@ -36,12 +36,12 @@ Close the loop with coding agents. Omega exposes a Model Context Protocol server
    | `get_context_pack_file` | projectId, path, planId? | one file from the agent pack (same builder as spec 40) |
 
    - Tool descriptions are written for agents: when to call each tool and what it returns.
-   - Outputs are text content. Large outputs are capped at 100 KB, with a truncation note.
+   - Resolve a plan revision once and return its ID on every response; subsequent unit/file reads pin that revision. Return structured pagination or bounded sections plus continuation cursors when content exceeds 100 KB. Never silently truncate executable requirements or return broken partial JSON as a complete artifact.
    - Inputs are validated with zod. An unknown or inaccessible project gives the same "not found" error either way.
 
 3. **Resources and prompts.** Optional and out of scope, unless the SDK makes a resource for `omega://projects/{id}/spec` trivial. If added, it mirrors `get_spec`.
 
-4. **Rate limiting.** 120 tool calls per token per minute, in memory per instance, with an honest note in the tracker that this is per instance, not global.
+4. **Rate limiting.** Enforce 120 calls/token/minute across instances using a shared database-backed bucket (or a measured shared limiter); instance-local counters are insufficient. Validate transport Origin, request size and protocol versions using the selected SDK.
 
 5. **Setup page.**
    - `/settings/mcp`, linked from the tokens page.
@@ -53,20 +53,20 @@ Close the loop with coding agents. Omega exposes a Model Context Protocol server
 
 ## Scope limits
 
-- No write tools (no creating nodes, triggering runs, or posting chat). A write-capable MCP needs write scopes and is backlog.
-- No OAuth flow for MCP clients. Bearer personal access tokens only.
+- No write tools in this unit. Spec 58 introduces narrowly scoped execution reporting with a separate credential type.
+- PAT-based clients only in this release. Document tested clients and authentication compatibility; do not claim universal remote MCP compatibility. Clients requiring standard OAuth discovery need a separately implemented protocol/auth slice before support is advertised. Check current MCP authorization and security requirements at implementation.
 
 ## Edge cases
 
 - A project deleted between `list_projects` and `get_spec`: not found.
 - A plan without the requested unit number: a clear error listing the valid range.
-- Very large graphs in `json` format: capped with a note that points to `summary`.
+- Very large graphs: paginate valid structured data or direct the caller to the pinned authorized download; never cut a JSON document mid-value.
 
 ## Tests
 
 - Each tool with the data layer mocked: happy path, not a member, missing entity.
 - 401 without a token; a revoked token is rejected.
-- The output cap and truncation note.
+- Output pagination, exact revision continuity and valid reassembly of structured content above the response cap.
 
 ## Check when done
 

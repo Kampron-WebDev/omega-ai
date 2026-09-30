@@ -19,9 +19,9 @@ Everyone in a room sees when the AI is working, what it is doing, and where on t
    - `AI_FEEDS = { chat: "ai-chat", status: "ai-status-feed" } as const`
    - `AI_AGENT = { userId: "omega-ai", name: "Ghost AI", color: "#8b82ff" }`. The color is a data value sent over the wire, the same reasoning as `CURSOR_COLORS`.
    - `aiTaskKindSchema`: `"design" | "spec" | "review" | "plan"`
-   - `aiRunPhaseSchema`: `"queued" | "running" | "completed" | "failed" | "cancelled"`
+   - `aiRunPhaseSchema`: `"queued" | "running" | "cancelling" | "reconciling" | "completed" | "failed" | "cancelled"`
    - `aiStatusMessageSchema`: `{ type: "status", runId, task, phase, text?: string (≤ 280), progress?: number (0–1), requestedBy: { id, name } }`
-   - `AI_STATUS_STALE_MS = 15 * 60 * 1000`: a queued or running status older than this counts as ended, so a crashed task can never lock the room forever. Spec 34 adds the server-side reaper.
+   - `AI_STATUS_STALE_MS = 15 * 60 * 1000`: an old notification triggers authoritative status reconciliation; it does not declare a run finished or release its lease. Spec 34 adds heartbeat expiry and server-side recovery.
 
 2. **Feeds exist in every room: `lib/liveblocks-feeds.ts`** (server only).
    - `ensureRoomFeeds(roomId)`: `getFeeds`, then `createFeed` for each missing ID in `AI_FEEDS`. A concurrent "already exists" answer counts as success.
@@ -30,9 +30,9 @@ Everyone in a room sees when the AI is working, what it is doing, and where on t
    - `setAgentPresence(roomId, { cursor, thinking }, ttlSeconds)` wraps `liveblocks.setPresence` with `userId: AI_AGENT.userId` and `userInfo: { name, avatar: "", color }`. `clearAgentPresence(roomId)` sets `thinking: false`, `cursor: null`, and the minimum TTL.
 
 3. **`hooks/use-ai-status.ts`** (client).
-   - Reads `useFeedMessages(AI_FEEDS.status)`, parses newest-first with `safeParse`, and skips invalid messages (log once in development).
-   - Returns `{ latest, isBusy, activeRun }`. `isBusy` is true when the latest message's phase is `queued` or `running` and it is younger than `AI_STATUS_STALE_MS`.
-   - Re-evaluates staleness on a 30 s timer, so an abandoned run clears without a new message.
+   - Reads feed notifications, then resolves authoritative server status through the access-checked run lookup once spec 31 lands. Feed payloads are not evidence of server authorship. Before spec 31, this is a display-only stub with no authority to lock or unlock operations.
+   - Returns `{ latest, isBusy, activeRun }`. From spec 31, busy derives from the server's current lease/non-terminal run, including cancelling/reconciling. An old or forged feed message cannot unlock a run.
+   - Re-evaluates staleness every 30 s and refetches authoritative state; show a reconnecting state when that lookup fails.
 
 4. **Sidebar busy state.**
    - A compact status strip above the composer while busy: a small animated indicator in `text-ai-text`, the status text (or "Ghost AI is working…"), the task label, and "requested by {name}".
@@ -49,7 +49,7 @@ Everyone in a room sees when the AI is working, what it is doing, and where on t
 
 ```ts
 type AiTaskKind = "design" | "spec" | "review" | "plan"
-type AiRunPhase = "queued" | "running" | "completed" | "failed" | "cancelled"
+type AiRunPhase = "queued" | "running" | "cancelling" | "reconciling" | "completed" | "failed" | "cancelled"
 
 interface AiStatusMessage {
   type: "status"
@@ -66,7 +66,7 @@ interface AiStatusMessage {
 
 - No chat messages. That is spec 30.
 - No background tasks and no AI calls.
-- Do not show the full status history; only the latest message matters.
+- Render status for the current run ID and monotonic server sequence. A delayed terminal message from an older run must not hide a newer active run. Full history UI is unnecessary.
 - Do not dim or block the sidebar.
 
 ## Edge cases
@@ -78,7 +78,7 @@ interface AiStatusMessage {
 ## Tests
 
 - `aiStatusMessageSchema` accepts valid messages and rejects an unknown phase or over-long text.
-- `useAiStatus` (jsdom, mocked `useFeedMessages`): busy while running; not busy after completed; not busy once stale; invalid messages skipped.
+- `useAiStatus`: running/cancelling/reconciling remain busy; confirmed terminal status clears; stale notifications trigger refetch; forged/delayed older-run notifications cannot change authoritative busy state.
 - `ensureRoomFeeds`: creates only the missing feeds and treats a conflict as success.
 
 ## Check when done

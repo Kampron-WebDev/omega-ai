@@ -23,6 +23,9 @@ Keep every generated spec. Store the Markdown in Vercel Blob and the metadata in
      filePath    String   // Blob URL, never sent to clients
      sizeBytes   Int
      runId       String?  @unique
+     generationInputId String
+     contentHash String
+     readiness   String   @default("draft") // validated enum at implementation
      createdById String
      createdAt   DateTime @default(now())
 
@@ -40,7 +43,7 @@ Keep every generated spec. Store the Markdown in Vercel Blob and the metadata in
    - `readProjectSpec(projectId, specId)`: the row plus its content. A row from another project returns `null`.
    - `deleteProjectSpec(projectId, specId)`: deletes the row, then the blob best-effort.
 
-3. **The task persists.** `trigger/generate-spec.ts` calls `saveProjectSpec` after assembly and returns `{ specId, title }`. `runId @unique` keeps a retried task idempotent: on a unique conflict, reuse the existing row. The completed status text is "Spec ready: {title}". The assistant posts to chat: "I generated **{title}**. Open it in the Specs tab."
+3. **The task persists.** Save against the immutable generation input, return IDs only, and reuse the unique run output on retry. Clean up only a newly uploaded unreferenced duplicate blob after a unique conflict, never the canonical blob. Persist delivery keys for chat/status effects. Say "Spec generated" for drafts; readiness is distinct from generation success. Reject individual deletion of source content pinned by a retained plan, with 409 and the referencing artifacts listed.
 
 4. **Routes** (member unless noted):
    - `GET /api/projects/[projectId]/specs` → `{ specs: SpecSummary[] }`

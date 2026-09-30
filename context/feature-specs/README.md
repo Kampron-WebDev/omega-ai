@@ -1,8 +1,10 @@
 # Feature Specs — Roadmap and Conventions
 
-Omega AI turns a plain-English idea into a reviewed system architecture, a technical specification, and a build plan that a coding agent can execute unit by unit. It covers planning (the project brief), designing (the collaborative canvas), architecture (the AI design agent and architecture review), and handoff (the spec, the build plan, the agent pack, and the MCP server).
+Omega AI turns an idea or an existing repository into traceable requirements, reviewed system contracts, a versioned architecture, a dependency-aware implementation plan and a complete agent build package. Humans can plan together with agents or authorize bounded autonomous planning. Later capabilities connect coding agents, verify delivered work and optionally execute builds in isolated environments.
 
-Every file in this folder is one **unit of work**: small enough to review as one commit, and verifiable on its own. Build them **strictly in numeric order**. Each spec names what it depends on, and the order below already satisfies every dependency.
+Specs 01–46 are the original incremental foundation; specs 47–65 are capability milestones, implemented as smaller reviewable sub-units recorded in the tracker. Numeric order is the default and dependencies are mandatory. Pull forward only the release-specific validation slices from 63–65 described below; do not mark their parent milestones complete early. Completed specs are historical; recorded implementation decisions explain their deviations.
+
+Read [the roadmap assessment](../roadmap-assessment.md) for findings and release boundaries, and [the shared agentic contracts](../agentic-platform-contracts.md) for state, identity, authority and verification rules. New specs are planned, not implemented. Current implementation remains complete through 21, with 22 next.
 
 ## How an agent works through a spec
 
@@ -18,6 +20,9 @@ Every file in this folder is one **unit of work**: small enough to review as one
 - No new raw colors in components. Use the tokens in `app/globals.css` (see `ui-context.md`).
 - New environment variables are added to `lib/env.ts` and `.env.example`, and listed under the spec's **Environment** heading.
 - `progress-tracker.md` reflects what was actually built and what was actually verified. Anything not observed in a browser is recorded as not observed.
+- Artifact-producing features prove revision consistency, idempotent retry, requirement coverage and failure recovery. Relevant concurrent/revocation paths have integration tests against isolated infrastructure; mocked unit tests alone do not establish transaction safety.
+- Ready, verified, integrated and released are separate states. Drafts may be useful but cannot pass a readiness gate with missing requirements, invalid references or unresolved blocking choices.
+- Documentation-only roadmap changes validate links, numbering, dependencies and consistency; they do not require rerunning application builds when no runtime files changed.
 
 ## Shared conventions the specs rely on
 
@@ -28,10 +33,11 @@ Specs refer to these by name instead of repeating them.
 - **Room ID = project ID** (the cuid). A route that receives a `roomId` resolves the project through a member check. A client-supplied `projectId` is never trusted.
 - **Server reads the canvas.** AI tasks, specs, reviews, exports, and snapshots read nodes, edges, and the brief from the Liveblocks room on the server (`lib/canvas-room.ts`, created in spec 25). They never accept a graph from the client.
 - **Canvas schema:** `lib/canvas-schema.ts` (spec 23) is the single validator for every graph that crosses a boundary: templates, snapshots, checkpoints, imports, and AI output.
-- **Realtime channels:** Liveblocks Storage holds the flow (the default key used by `useLiveblocksFlow`) and `brief` (spec 28). Feeds `ai-chat` and `ai-status-feed` (specs 29–30) carry chat and AI status. Presence carries `cursor` and `thinking`. The AI agent appears as the Liveblocks user `omega-ai`.
+- **Realtime channels:** Liveblocks Storage holds flow and brief. Canonical chat and run state live in PostgreSQL; feeds notify clients to refresh those records and are not an author/permission boundary. Presence carries cursor/thinking only.
 - **Background work:** anything that calls an LLM runs in a Trigger.dev task under `trigger/`, tracked by a `TaskRun` row (spec 31). Request handlers only enqueue.
 - **Artifacts:** large content lives in Vercel Blob; Prisma stores the reference plus metadata. Blob URLs are never sent to the browser; downloads go through access-checked routes.
-- **One AI run per project at a time**, whatever its kind (spec 31). Every AI run that changes the canvas creates a checkpoint first (specs 26 and 33).
+- **One planning writer per project** by database lease/outbox, independent of realtime notifications (31). Every canvas edit has a checkpoint, conditional atomic mutation and persisted effect identity. Parallel coding workers in 62 have separate isolated workspaces and serialized integration; they do not bypass the planning writer lease.
+- **Consistent artifacts:** specs 35–40 pin immutable generation inputs. Spec 50 extends these into baselines for requirements, decisions, contracts and repository commits. Export and MCP use the same exact-revision resolver.
 
 ## Spec template
 
@@ -123,16 +129,64 @@ Specs 01–21 are complete (see `progress-tracker.md`).
 | 45 | `45-personal-access-tokens.md` | Hashed, revocable API tokens for programmatic access |
 | 46 | `46-mcp-server.md` | MCP server so coding agents read projects, specs, and plans directly |
 
-## Backlog (not yet specified)
+### Phase 8 — Requirements and system definition
 
-Candidates for specs after 46, in rough priority order. Each one needs a spec written in the template above before anyone builds it.
+| # | Spec | Outcome |
+| --- | --- | --- |
+| 47 | [47-requirements-discovery-decisions.md](47-requirements-discovery-decisions.md) | Requirements, Discovery and Decisions |
+| 48 | [48-software-profiles.md](48-software-profiles.md) | Software Profiles and Support Levels |
+| 49 | [49-product-system-contracts.md](49-product-system-contracts.md) | Product, Interface and System Contracts |
+| 50 | [50-baselines-change-control.md](50-baselines-change-control.md) | Baselines, Revisions and Change Impact |
 
-- Multiple diagram views per project (system context, containers, deployment).
-- Data-model entities with typed fields and relationships, and an ERD view.
-- API contract design on service nodes, with OpenAPI export.
-- A clarifying-questions mode, where the design agent asks before it designs.
-- Push the agent pack to a GitHub repository as a pull request.
-- Viewer role and read-only share links (this needs the project overview's scope to change first).
-- Spec diffing between generations.
-- Cloud cost estimation from node kinds and technologies.
-- Mermaid and draw.io import.
+### Phase 9 — Scalable planning and complete handoff
+
+| # | Spec | Outcome |
+| --- | --- | --- |
+| 51 | [51-hierarchical-build-plans.md](51-hierarchical-build-plans.md) | Hierarchical Plans and Requirement Coverage |
+| 52 | [52-milestones-daily-scheduling.md](52-milestones-daily-scheduling.md) | Milestones, Daily Sessions and Capacity |
+| 53 | [53-versioned-context-retrieval.md](53-versioned-context-retrieval.md) | Versioned Context and Source Provenance |
+| 54 | [54-reproducible-agent-pack.md](54-reproducible-agent-pack.md) | Reproducible Agent Pack and Readiness |
+
+### Phase 10 — Autonomy, verification and agent feedback
+
+| # | Spec | Outcome |
+| --- | --- | --- |
+| 55 | [55-autonomous-planning-controller.md](55-autonomous-planning-controller.md) | Collaborative and Autonomous Planning |
+| 56 | [56-verification-evidence-gates.md](56-verification-evidence-gates.md) | Verification Plans and Evidence Gates |
+| 57 | [57-execution-ledger-resume.md](57-execution-ledger-resume.md) | Execution Ledger, Leases and Resumption |
+| 58 | [58-scoped-agent-bridge.md](58-scoped-agent-bridge.md) | Scoped Agent Reporting and MCP Bridge |
+
+### Phase 11 — Existing repositories and managed delivery
+
+| # | Spec | Outcome |
+| --- | --- | --- |
+| 59 | [59-existing-repository-intake.md](59-existing-repository-intake.md) | Existing Repository Intake and Drift |
+| 60 | [60-repository-delivery-integration.md](60-repository-delivery-integration.md) | Pull Request Delivery and Integration |
+| 61 | [61-isolated-execution-runtime.md](61-isolated-execution-runtime.md) | Isolated Execution Runtime |
+| 62 | [62-bounded-build-orchestration.md](62-bounded-build-orchestration.md) | Bounded Autonomous Build Orchestration |
+
+### Phase 12 — Operations, evaluations and launch
+
+| # | Spec | Outcome |
+| --- | --- | --- |
+| 63 | [63-operations-data-lifecycle.md](63-operations-data-lifecycle.md) | Operations, Data Lifecycle and Release Readiness |
+| 64 | [64-agent-quality-evaluations.md](64-agent-quality-evaluations.md) | Agent Quality Evaluations and Dogfooding |
+| 65 | [65-workspace-accessibility-launch.md](65-workspace-accessibility-launch.md) | Workspace Usability, Accessibility and Launch Gates |
+
+## Release gates
+
+| Release | Required capabilities | Evidence required |
+| --- | --- | --- |
+| Architecture/handoff preview | 22–46 and their amended reliability contracts | Spec 44 browser/access/recovery suite; immutable export; no skipped release build |
+| Planning platform | 47–56 plus applicable validation slices from 63–65 | Complete ready package; fresh-agent implementation and resume; evaluated supported profiles |
+| Connected delivery | 57–60 plus applicable 63–65 slices | Scoped claims/reporting, verified commit-bound CI and reviewable PR delivery |
+| Managed execution | 61–65 | Sandbox isolation, bounded cost/authority, cancellation, crash recovery and verified integration |
+
+Build release validation alongside the capability it protects. Numbering is not a reason to postpone security, browser tests or evaluations until the end. Use the detailed gate definitions in `context/roadmap-assessment.md`.
+
+## Deferred product extensions
+
+- Viewer roles, public share links and enterprise organizations need a separate access model and spec.
+- Billing, organization quotas and commercial packaging remain outside this engineering roadmap.
+- Cloud cost prediction, Mermaid/draw.io import, marketplace extensions and richer visual design tooling remain optional follow-ups.
+- No claim of universal or safety-critical software support; expand profile support only with corresponding toolchains and evaluation evidence.

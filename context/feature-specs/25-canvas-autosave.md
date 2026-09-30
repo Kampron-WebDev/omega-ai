@@ -6,7 +6,7 @@
 
 Keep a durable copy of every canvas outside Liveblocks, restore it into an empty room, and show users that their work is saved. The canvas JSON lives in Vercel Blob; the Prisma `Project` row stores the reference.
 
-**The server is the only writer.** Clients signal that something changed; the server reads the room's real state and writes the snapshot. A client never uploads a graph. This removes three problems at once: trusting client JSON, several clients racing each other, and snapshots that differ from what the room actually holds.
+**The server is the only snapshot writer.** Clients signal changes; the server reads the room and writes a validated snapshot. This avoids trusting uploaded canvas state, but server requests can still race. Serialize snapshot publication per project and test that an older read can never replace a newer accepted save.
 
 ## Read first
 
@@ -27,7 +27,7 @@ Keep a durable copy of every canvas outside Liveblocks, restore it into an empty
 ## Implementation
 
 1. **Schema.** On `Project`:
-   - add `canvasSavedAt DateTime?` and `canvasHash String?` (the SHA-256 of the serialized snapshot)
+   - add `canvasSavedAt DateTime?`, `canvasHash String?` (SHA-256 of canonical content, excluding `savedAt`) and `canvasRevision Int @default(0)`, the monotonic snapshot publication revision
    - replace `@@index([ownerId])` with `@@index([ownerId, createdAt])`, the composite the project list needs (an open question in `progress-tracker.md`)
    - one migration, named `canvas_autosave`
 
@@ -41,10 +41,10 @@ Keep a durable copy of every canvas outside Liveblocks, restore it into an empty
    - `writeCanvasSnapshot(projectId)`:
      1. read the room graph
      2. validate it
-     3. serialize with stable key order, then hash
+     3. canonicalize persistent graph content (and, from spec 28, the brief), excluding timestamps, presence, selection and other transient UI fields; hash that content, then add `savedAt` to the serialized snapshot envelope
      4. if the hash equals `canvasHash`, return `{ changed: false }`
-     5. otherwise `put` to `canvas/{projectId}/{random}.json` with `addRandomSuffix` (a new URL per save avoids stale CDN copies of an overwritten blob), with private access when the installed version supports it
-     6. update `canvasJsonPath`, `canvasHash`, and `canvasSavedAt` in one Prisma update
+     5. otherwise `put` to `canvas/{projectId}/{random}.json` with private access and a new URL per save. If private access is unavailable, choose a private storage adapter before shipping; an unguessable public URL is not authorization.
+     6. publish `canvasJsonPath`, `canvasHash`, `canvasSavedAt` and revision with a database-backed per-project lease and fencing/CAS check. Acquire before reading and release after publication; renew during remote calls without holding an open database transaction. A stale writer cleans up its own unreferenced blob and retries from a fresh read; it never publishes an older snapshot.
      7. best-effort `del` of the previous blob, whose failure is logged and never thrown
    - `readCanvasSnapshot(projectId)` fetches and validates the stored snapshot, or returns `null`.
 
@@ -55,7 +55,7 @@ Keep a durable copy of every canvas outside Liveblocks, restore it into an empty
 
 5. **`hooks/use-canvas-autosave.ts`.**
    - Exposes `{ status, lastSavedAt, markDirty, saveNow }`, where `status` is `"idle" | "saving" | "saved" | "error"`.
-   - `markDirty()` is called only for **local** edits. `CanvasFlow` calls it from its change handlers, ignoring `select` and `dimensions` changes, and from `importTemplate` and the inspector writes. Remote edits never trigger a save from this client; whoever made them saves.
+   - `markDirty()` is called for persistent local edits, including resize dimensions, undo/redo, import and inspector writes. Ignore selection and measurement-only dimension changes. Debounced save runs after Liveblocks confirms local storage synchronization; HTTP and WebSocket messages are not ordered together. A lifecycle beacon is best-effort, never proof of a successful final save.
    - Debounce: trailing 3 s, and a maximum wait of 20 s during continuous editing.
    - On failure: retry with backoff (2 s, 5 s, 15 s), then `error`. `saveNow()` retries immediately.
    - On `pagehide`, or `visibilitychange` to hidden, while dirty: `navigator.sendBeacon` to the snapshot route (same-origin, so the Clerk cookie is sent).
@@ -82,10 +82,12 @@ interface CanvasSnapshotV1 {
 
 | Route | Access | Success | Errors |
 | --- | --- | --- | --- |
-| `POST …/canvas/snapshot` | member | `200 { changed, savedAt }` | 401, 404 |
+| `POST …/canvas/snapshot` | member | `200 { changed, savedAt, revision }` | 401, 404, 422 (graph failed validation) |
 | `GET …/canvas` | member | `200 { savedAt, nodeCount, edgeCount } \| null` | 401, 404 |
 | `POST …/canvas/restore` | member | `200 { restored }` | 401, 404 |
 
+- `Project` gains `canvasSavedAt`, `canvasHash`, and `canvasRevision`. A snapshot is published only when its revision is exactly one above the stored value (compare-and-set), so an older read can never replace a newer save.
+- `lib/api-response.ts` gains `unprocessable_entity` → `422`.
 - Blob keys: `canvas/{projectId}/{random}.json`. Update `architecture-context.md`, which currently says `canvas/{projectId}.json`.
 
 ## Scope limits
@@ -96,13 +98,15 @@ interface CanvasSnapshotV1 {
 
 ## Edge cases
 
-- A snapshot that fails validation (a bad edit from an old client) is **not** written. Log the issues and answer `200 { changed: false }`, so the client does not retry forever. The last good snapshot stays.
+- A snapshot that fails validation is not written. Return `422 unprocessable_entity` with bounded safe issues (add this shared error code here); show a persistent invalid-state error without automatic retries. The last good snapshot stays. Never label a rejected save as saved.
+- Track whether the room was initialized separately from whether it contains zero nodes. Restore only an uninitialized room; an intentional empty graph or a brief-only project must not resurrect an older design. Spec 28 extends the emptiness rule to the brief.
 - A room that is empty on purpose (the user deleted everything) must not be refilled on the next open. Delete-all saves an empty snapshot, and restoring an empty snapshot is a no-op.
 - A project deleted while a save is in flight: the Prisma update fails with not-found; answer `404` and swallow the orphan blob (best-effort `del`).
 
 ## Tests
 
-- `writeCanvasSnapshot`: skips when the hash is unchanged; writes, updates, and deletes the old blob otherwise; refuses invalid graphs. Mock blob, Prisma, and the room reader.
+- `writeCanvasSnapshot`: unchanged content skips even at different times; simultaneous saves cannot publish out of order; stale writers cannot delete the currently referenced blob; invalid graphs visibly fail. Mock remote stores and add a transaction race test with an isolated database.
+- Resize, undo/redo, storage-sync delay, intentional empty rooms and brief-only restore regressions.
 - Route tests: 401, 404 for a non-member, 200 for a member.
 - `useCanvasAutosave` (jsdom, fake timers): debounce, max wait, retry backoff, and select-only changes that do not mark dirty.
 

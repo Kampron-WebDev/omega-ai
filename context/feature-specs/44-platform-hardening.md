@@ -20,7 +20,7 @@ Close the gaps between "works" and "safe to run for real users": security header
    - `X-Frame-Options: DENY`
    - `Permissions-Policy` disabling camera, microphone, and geolocation
    - `Strict-Transport-Security` in production only
-   - **CSP in `Content-Security-Policy-Report-Only` first.** List the origins the app actually uses: Clerk (frontend API and images), Liveblocks (API and WebSocket), Trigger.dev realtime, Vercel Blob (none; the browser never loads blobs), and Google Fonts if used. Record the observed violations in the tracker. Switching to enforcing mode is a separate, explicit decision.
+   - **CSP in `Content-Security-Policy-Report-Only` during validation.** Measure the actual Clerk, Liveblocks and Trigger.dev origins; browser Blob origins are unnecessary because content is proxied through authorized routes. Verify font delivery instead of assuming Google-hosted requests. Resolve violations and enable enforcement on the release candidate with rollback instructions.
 
 2. **Error surfaces.**
    - `app/global-error.tsx`, `app/error.tsx`, and `app/editor/[roomId]/error.tsx` (canvas-specific: "Something went wrong loading this workspace", with Retry and Back to projects), plus `app/not-found.tsx`.
@@ -36,16 +36,20 @@ Close the gaps between "works" and "safe to run for real users": security header
    - It turns unexpected throws into `500 internal` (add the code) with the request ID and no internals.
    - Apply it to every existing route.
 
-5. **Size limits.** `readJsonObject` (and the zod parsing path) rejects bodies over 64 KB with `413 payload_too_large`, except routes that set a higher limit explicitly (canvas import: 2 MB).
+5. **Size limits.** Bound the request stream before parsing, regardless of `Content-Length`; default 64 KB, canvas import 2 MB. Bound uploaded/output artifacts too. Session-authenticated mutations validate Origin/CSRF protections; a cross-site request cannot use a browser session to start paid work or mutate a project.
 
 6. **Clerk migration.** Replace `createRouteMatcher` in `proxy.ts` with resource-level checks. Page routes (`/editor`, `/editor/[roomId]`) call `auth()` and redirect to sign-in themselves. The proxy keeps only what Clerk still requires for session handling. Verify the redirect behavior for signed-out users on each page route by hand, and record it.
 
 7. **CI.** Make `npm audit --omit=dev --audit-level=high` blocking. Add a check that fails if `.env*` files other than `.env.example` are tracked.
 
+8. **Preview release gate.** Add a dedicated isolated browser/integration suite for authenticated create/open/share/revoke, two-user collaboration, snapshot/checkpoint recovery, AI cancel/retry and immutable export. Provision only authorized test identities in non-production infrastructure; missing test credentials make this gate unverified, not passed. Test blank optional auth-path environment values so they cannot broaden public routes. Ensure the production build actually runs in the release job; a skipped secret-dependent build is not release evidence.
+
+9. **Access revocation and storage.** Verify how existing Liveblocks connections are disconnected or their permissions expire when membership is removed; test the observed revocation bound. Revalidate task requester membership before effects. Private blobs, prompt/output redaction, centralized request errors and critical authority checks apply when each earlier feature lands, not only at spec 44. Review provider and worker environments separately from Next.js.
+
 ## Scope limits
 
 - No third-party error tracking (Sentry and the like). That needs the user's choice of vendor; add it to Open Questions.
-- No enforcing CSP in this unit.
+- Enforce CSP on the release candidate after required origins are measured and violations resolved; report-only remains available for controlled rollout, but it is not a substitute for the release security assessment.
 
 ## Edge cases
 

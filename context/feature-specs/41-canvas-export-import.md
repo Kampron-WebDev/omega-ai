@@ -35,7 +35,7 @@ Get designs out of Omega and into documents, READMEs, and slides (PNG, SVG, Merm
    - A validation failure answers `400` with the first five readable issues, shown in the dialog.
    - Success fits the view and posts a system chat message: "{name} imported a design from {filename}".
 
-3. **Body size.** The import route checks `Content-Length` and the parsed size against 2 MB before parsing and answers `413`. Add the `payload_too_large` code to `lib/api-response.ts`.
+3. **Body size.** Bound bytes while reading the request stream before JSON parsing; reject over 2 MB with 413 even when `Content-Length` is missing or false. Add `payload_too_large` centrally. Apply the spec 26 expected-revision and serialized checkpoint/replacement protocol to prevent races with human edits and imports.
 
 ## Scope limits
 

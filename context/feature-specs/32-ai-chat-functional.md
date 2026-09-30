@@ -18,12 +18,12 @@ Make the AI Architect tab a working product surface against the stub task. Submi
 
 ## Implementation
 
-1. **The design route posts the prompt.** `POST /api/ai/design` posts the user's prompt to `ai-chat` (author from the session) **before** starting the run, then includes `runId` on that message. That is one request, and the prompt is visible to the room even if the run fails to start. If the start fails with 409 or 503, post nothing. Validate and check the active run before posting.
+1. **One durable admission.** The spec 31 transaction reserves the run and creates its canonical prompt together, with the internal run ID already available. A rejected admission posts nothing. An accepted run that later fails dispatch retains the prompt and a visible failed status. The client supplies one idempotency key across retries; notification retries never duplicate the prompt.
 
 2. **`hooks/use-ai-run.ts`** (the requester's view of their own run).
    - On mount, `GET /api/ai/runs/active?roomId=`. If `isMine`, fetch a token for that run and reattach.
-   - `submit(prompt)` calls the design route, then stores `{ runId, publicAccessToken }`.
-   - `useRealtimeRun(runId, { accessToken })` for the run's status and metadata.
+   - `submit(prompt)` calls the design route, then stores `AiRunHandle`. A queued run may not have a provider ID/token yet; retry attachment with bounded backoff while server state remains queued, without resubmitting the prompt.
+   - Follow persisted QUEUED status until dispatch attaches `providerRunId`, then call `useRealtimeRun(providerRunId, { accessToken })`. Internal and provider IDs are not interchangeable. Server status remains authoritative on reconnect or notification loss.
    - Clears local run state on any terminal status.
    - A token rejected mid-run (expired) is refreshed once through the token route.
 

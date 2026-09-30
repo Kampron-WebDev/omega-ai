@@ -35,16 +35,20 @@ Stand up the background-task backbone every AI feature uses: Trigger.dev in the 
 
    ```prisma
    enum TaskRunKind   { DESIGN SPEC REVIEW PLAN }
-   enum TaskRunStatus { QUEUED RUNNING COMPLETED FAILED CANCELLED }
+   enum TaskRunStatus { QUEUED RUNNING CANCELLING RECONCILING COMPLETED FAILED CANCELLED }
 
    model TaskRun {
      id          String        @id @default(cuid())
-     runId       String        @unique
+     runId       String?       @unique // provider ID, attached after dispatch
+     requestKey  String
+     payloadHash String
      projectId   String
      userId      String
      kind        TaskRunKind
      status      TaskRunStatus @default(QUEUED)
-     prompt      String?       // first 2000 chars; for audit and "requested by" UI
+     promptMessageId String?   // canonical bounded chat record; no duplicate prompt for audit
+     heartbeatAt DateTime?
+     leaseEpoch  Int           @default(1)
      error       String?       // safe, user-facing message
      createdAt   DateTime      @default(now())
      updatedAt   DateTime      @updatedAt
@@ -55,6 +59,36 @@ Stand up the background-task backbone every AI feature uses: Trigger.dev in the 
      @@index([userId, projectId])
      @@index([projectId, status])
      @@index([userId, createdAt])
+     @@unique([projectId, userId, requestKey])
+   }
+
+   /// At most one planning writer per project. Released, or taken over with a higher epoch, when the run ends or is fenced.
+   model AiProjectLease {
+     projectId String   @id
+     taskRunId String   @unique
+     epoch     Int
+     expiresAt DateTime // renewed by the worker's heartbeat
+     createdAt DateTime @default(now())
+
+     project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+   }
+
+   enum TaskDispatchStatus { PENDING DISPATCHED FAILED }
+
+   /// Transactional outbox: written with the TaskRun, drained by the dispatcher after commit.
+   model TaskDispatch {
+     id            String             @id @default(cuid())
+     taskRunId     String             @unique // also the provider idempotency key
+     taskId        String             // Trigger.dev task identifier
+     payload       Json
+     status        TaskDispatchStatus @default(PENDING)
+     attempts      Int                @default(0)
+     nextAttemptAt DateTime           @default(now())
+     lastError     String?
+     createdAt     DateTime           @default(now())
+     updatedAt     DateTime           @updatedAt
+
+     @@index([status, nextAttemptAt])
    }
    ```
 
@@ -63,25 +97,25 @@ Stand up the background-task backbone every AI feature uses: Trigger.dev in the 
 3. **`lib/task-runs.ts`** (server only).
    - `createTaskRun`
    - `findRunForUser(runId, userId)`, used for token issuance
-   - `findActiveRun(projectId)`: any kind, status `QUEUED` or `RUNNING`, created within `AI_STATUS_STALE_MS`
+   - `findActiveRun(projectId)`: the current project lease holder with a non-terminal status. Age alone cannot unlock a still-running writer; expiry triggers reconciliation and fences the old attempt.
    - `markRunStatus(runId, status, { error? })`, which sets `completedAt` on terminal states
 
    **One active AI run per project, of any kind**: a spec generated while the design agent is editing would describe a half-changed graph.
 
-4. **`lib/trigger-runs.ts`**, the single place route handlers call Trigger.dev. `startAiRun({ kind, taskId, payload, projectId, userId, prompt })`:
-   1. reject if `findActiveRun` finds one
-   2. `tasks.trigger` with `concurrencyKey: projectId` on a queue with `concurrencyLimit: 1` (belt and braces with step 1 against simultaneous requests), `tags: [project:{id}, user:{id}]`, and an `idempotencyKey` derived from the request
-   3. `createTaskRun` with the returned ID
-   4. return `{ runId, publicAccessToken }` from the run handle
+4. **`lib/trigger-runs.ts`**, the only dispatch entry point. Add a project-unique `AiProjectLease` and a durable `TaskDispatch` outbox with unique internal task ID. In one short database transaction, resolve `(projectId, userId, requestKey)`, reject changed payload reuse, reserve the project lease, create the QUEUED row and outbox, and insert the canonical user prompt (for design requests). Concurrent new requests get 409; an identical retry returns the existing run.
+   - A dispatcher calls Trigger.dev after commit, using the internal TaskRun `id` as the provider idempotency key, then attaches the provider ID. Workers receive the internal ID and lease epoch, so the record exists before they start. Queue keys are a secondary scheduler control, not the database admission guarantee.
+   - Return `202 { runId: internalId, providerRunId?, publicAccessToken? }`. Until dispatch finishes, clients follow persisted QUEUED status; token lookup returns 409 `dispatch_pending` until a provider ID exists. Keep this transient conflict distinct from another active run.
+   - Retry outbox dispatch with bounded backoff and reconciliation. A timeout with unknown provider outcome must not release the lease or create another job. Terminal dispatch failure publishes a safe failed state and releases the fenced lease.
+   - All API paths and checkpoint/chat references use the internal ID; provider APIs/hooks use the resolved provider ID. Token issuance verifies requester and current project membership.
 
 5. **`POST /api/ai/design`**, body `{ roomId, prompt }` (prompt 1–4000 characters after trimming).
    - Authenticate, then parse with zod, then member check. The `projectId` comes from the access check.
    - An active run → `409 conflict` with `{ activeRun: { runId, task, requestedBy } }` in the error body, so the UI can say who is running what.
    - Payload `{ projectId, roomId, prompt, requestedBy: { id, name } }`.
-   - Answers `202 { runId, publicAccessToken }`.
+   - Answers the queued/attached 202 contract above; accepts an `Idempotency-Key` header stable across client retries.
 
 6. **`POST /api/ai/runs/[runId]/token`** replaces the old per-feature token routes.
-   - Only the run's requester (`findRunForUser`).
+   - Only the run's requester (`findRunForUser`) who still has project access; resolve the provider ID from the internal run ID.
    - Mints `auth.createPublicToken` with read scope limited to that one run, expiring in 1 hour.
    - Anyone else gets `404`. Collaborators follow runs through the status feed, not tokens.
 
@@ -107,13 +141,20 @@ Stand up the background-task backbone every AI feature uses: Trigger.dev in the 
 
 | Route | Access | Success | Errors |
 | --- | --- | --- | --- |
-| `POST /api/ai/design` | member | `202 { runId, publicAccessToken }` | 400, 401, 404, 409 |
-| `POST /api/ai/runs/[runId]/token` | requester | `200 { publicAccessToken }` | 401, 404 |
+| `POST /api/ai/design` | member | `202 AiRunHandle` | 400, 401, 404, 409, 503 |
+| `POST /api/ai/runs/[runId]/token` | requester and current member | `200 { providerRunId, publicAccessToken }` | 401, 404, 409 dispatch pending |
 | `GET /api/ai/runs/active?roomId=` | member | `200 { run \| null }` | 400, 401, 404 |
 
 ```ts
 // trigger payload for every AI task
+interface AiRunHandle {
+  runId: string // internal TaskRun ID; present before dispatch
+  providerRunId?: string
+  publicAccessToken?: string
+}
 interface AiTaskPayload {
+  runId: string // internal ID
+  leaseEpoch: number
   projectId: string
   roomId: string
   requestedBy: { id: string; name: string }
@@ -128,15 +169,15 @@ interface DesignTaskPayload extends AiTaskPayload { prompt: string }
 
 ## Edge cases
 
-- Trigger.dev is unreachable when starting a run: answer `503` with "AI is temporarily unavailable". Add a `service_unavailable` code. No `TaskRun` row is created.
-- The row insert fails after the trigger succeeded: cancel the run best-effort, then answer `500`.
-- The same request retried by the browser does not start two runs (idempotency key plus single-flight).
+- A database reservation failure returns 503 through the shared `service_unavailable` code, with no remote dispatch. Provider unavailability after durable acceptance remains queued with bounded retries, then fails visibly; an uncertain dispatch is reconciled.
+- One project's lease must not serialize all projects globally. Tests demonstrate independent project concurrency.
+- A worker/old retry may publish only while its epoch is current; terminal transitions are compare-and-set and cannot move backward. Recheck project access before side effects. Persist effect IDs/results for retry safety.
 
 ## Tests
 
 - Route tests with `@trigger.dev/sdk`, Prisma, and auth mocked: 401, 400, 404, 409 (with an `activeRun` body), 202; the payload `projectId` comes from access, not the body.
 - Token route: the requester gets a token; another member gets 404.
-- `findActiveRun` ignores stale runs.
+- Race tests prove one reservation per project and row existence before worker start. Test outbox replay, unknown dispatch outcomes, mismatched idempotency payloads, revoked requesters and stale-epoch publication.
 
 ## Check when done
 

@@ -1,6 +1,6 @@
 # 42 — Comments on Nodes
 
-**Phase:** 7 · Collaboration depth · **Depends on:** 24 · **Unlocks:** richer AI context in 35, 38, and 39
+**Phase:** 7 · Collaboration depth · **Depends on:** 24, 35, 38, 39 · **Unlocks:** richer generation input and review context
 
 ## Goal
 

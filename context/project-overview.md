@@ -2,9 +2,9 @@
 
 ## Overview
 
-Omega AI is a real-time collaborative workspace for planning, designing, and handing off software systems. A team writes a brief, describes the system in plain English, and an AI agent maps it onto a shared canvas. Collaborators refine and review the architecture together. The app then generates a technical specification and an ordered build plan that a coding agent can execute unit by unit.
+Omega AI is a collaborative and agentic software-planning and delivery platform. A person or team supplies an idea, requirements or an existing repository. Humans and agents refine requirements, decisions, architecture and contracts together, or the owner authorizes bounded autonomous planning. Omega produces a complete, versioned folder that coding agents can build from across sessions and days, with measurable acceptance criteria and resumable progress.
 
-It covers the path from idea to the first commit: **plan → design → review → specify → hand off**.
+The foundation covers **discover → design → review → specify → plan → hand off**. Later releases add **implement → verify → integrate → operate** through scoped external agents and optional isolated execution. The roadmap describes the destination; the implemented app currently ends at the spec 21 foundation.
 
 ## Goals
 
@@ -16,6 +16,11 @@ It covers the path from idea to the first commit: **plan → design → review �
 6. Review architectures with deterministic checks plus an AI reviewer, with findings linked to the canvas.
 7. Convert the design into a persistent Markdown technical spec.
 8. Generate an agent-ready build plan and a downloadable context pack, and serve them to coding agents over MCP.
+9. Trace every in-scope requirement to contracts, implementation units and observable verification criteria.
+10. Support profile-specific planning for web, services, CLI/libraries and progressively evaluated native, data/ML, infrastructure, game and embedded targets.
+11. Decompose large projects into milestones, dependency-aware units and capacity-based daily sessions, with honest estimate ranges.
+12. Preserve exact inputs, decisions and handovers so a fresh agent can resume work without the original chat.
+13. Offer bounded autonomous planning and, separately, authorized execution with verifiable evidence, spending limits and recovery.
 
 ## Core User Flow
 
@@ -29,6 +34,8 @@ It covers the path from idea to the first commit: **plan → design → review �
 8. User generates the technical spec.
 9. User generates a build plan and exports the agent pack, or connects a coding agent over MCP.
 10. A coding agent builds the system one unit at a time.
+11. For connected delivery, the agent claims dependency-ready units, submits commit-bound evidence and records blockers/handover state.
+12. Humans or authorized policies review changes and integration. Source changes create new plan revisions and revalidate affected work. Deployment is a separate authorized release action.
 
 ## Features
 
@@ -41,6 +48,7 @@ It covers the path from idea to the first commit: **plan → design → review �
 ### Planning
 
 - A collaborative project brief with fixed sections, stored in the room and read by every AI task.
+- Planned in 47–55: structured requirements, clarification, durable decisions, profile-specific contracts, versioned baselines, hierarchical plans, daily sessions and manual/collaborative/autonomous planning modes.
 
 ### Collaborative Canvas
 
@@ -83,6 +91,9 @@ It covers the path from idea to the first commit: **plan → design → review �
 - A downloadable agent pack: `AGENTS.md`, `CLAUDE.md`, context documents, and numbered feature specs.
 - Canvas export as PNG, SVG, Mermaid, and JSON; JSON import.
 - Personal access tokens and a read-only MCP server for coding agents.
+- Planned in 54: an offline-verifiable pack containing exact source revisions, manifest/hashes, requirements, contracts, decisions, setup/environment instructions, verification definitions, operations guidance and session handovers.
+- Planned in 56–62: evidence-based completion, durable execution state, separate scoped reporting credentials, existing-repository intake, pull requests and an optional isolated build runtime.
+- Planned in 63–65: retention/erasure, recovery, cross-profile evaluations, accessible workflows and release evidence. See `roadmap-assessment.md` for release gates.
 
 ## Scope
 
@@ -101,14 +112,20 @@ It covers the path from idea to the first commit: **plan → design → review �
 - Canvas export and JSON import
 - Persistent storage for project metadata and generated artifacts
 - Personal access tokens and a read-only MCP server
+- Versioned requirements/decisions/contracts and change impact
+- Autonomous planning within owner-defined policy, without mandatory repeated approval of routine authorized choices
+- Milestones, dependency-aware daily sessions and fresh-agent resumption
+- Existing-repository planning and scoped agent progress/evidence reporting
+- Reviewable repository delivery and optional managed execution, gated separately
+- Quality evaluations, accessibility, security, operational readiness and data lifecycle
 
 ### Out Of Scope
 
 - Billing and subscription systems
 - Enterprise permission tiers beyond owner and collaborator (no viewer role or share links yet)
-- Spec diffing and approval workflows
-- Write access for external tools (the API and MCP are read-only)
-- Mobile-native applications
+- Unrestricted external-tool access, autonomous changes to permission policy or automatic production deployment without a release grant
+- A native mobile Omega client (planning software that targets mobile is in scope)
+- Guaranteed success for every language/domain, or safety-critical/regulatory certification from generic AI reviews
 
 ## Success Criteria
 
@@ -120,3 +137,8 @@ It covers the path from idea to the first commit: **plan → design → review �
 6. The design can be converted into a persisted Markdown spec.
 7. A build plan and agent pack can be generated, and a coding agent can start building from the pack.
 8. Project metadata and generated artifacts are stored in the correct layers.
+9. A ready package has complete requirement coverage, internally consistent pinned revisions and no unresolved blocking decisions; drafts remain clearly labelled.
+10. A fresh coding agent can start and resume a representative project from its package without reconstructing missing context.
+11. Large plans can span sessions/days without skipping prerequisites, hiding uncertainty or exceeding the authorized budget.
+12. Reported success is distinguished from verified, integrated and released work, with evidence at the correct revision/commit.
+13. Each advertised software profile and autonomy tier passes the measured release gates in specs 63–65; unsupported targets are explicit.

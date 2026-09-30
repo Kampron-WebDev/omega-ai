@@ -39,7 +39,7 @@ Let a developer give tools (their coding agent, the MCP server in spec 46, scrip
    - At most 20 active tokens per user.
 
 3. **Identity resolution.**
-   - `getRequestIdentity(request)` in `lib/project-access.ts` returns the Clerk session identity, or, when an `Authorization: Bearer omg_…` header is present, the token owner's identity. The email is resolved through the Clerk Backend API and cached for 5 minutes per user.
+   - `getRequestIdentity(request)` treats an explicit Bearer header as the chosen credential: invalid tokens fail, without cookie fallback. Otherwise use the Clerk session. Re-resolve verified identity and current membership; any email cache must be invalidated on identity change. Removed collaborator access cannot persist through cached project grants.
    - Token identities carry `via: "token"` and `scopes`.
    - **Mutating routes reject token identities** with `403`. Only routes explicitly marked read-only accept them. Default deny.
 
@@ -63,7 +63,7 @@ Let a developer give tools (their coding agent, the MCP server in spec 46, scrip
 
 ## Scope limits
 
-- Read scope only. No write scopes, no organization tokens, no OAuth apps.
+- Read scope only. No write scopes, no organization tokens, no OAuth apps in this unit. Spec 58 adds separate execution credentials without upgrading existing read tokens.
 
 ## Edge cases
 

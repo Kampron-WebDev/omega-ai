@@ -1,12 +1,12 @@
 # 39 — Build Plan Generation
 
-**Phase:** 6 · Handoff · **Depends on:** 28, 35, 36, 37 · **Unlocks:** 40, 46
+**Phase:** 6 · Handoff · **Depends on:** 28, 35, 36, 37, 38 · **Unlocks:** 40, 46, 51
 
 ## Goal
 
-This is the feature that makes Omega an **agentic software-building** tool rather than a diagram tool. From the brief, the design, and the latest spec, generate an ordered build plan: numbered implementation units, each a self-contained feature spec that a coding agent (Claude Code, Cursor, Codex) can implement and verify one at a time.
+Generate an ordered build plan from a frozen brief/design input and its linked technical spec: numbered implementation units that a coding agent can implement and verify one at a time. This is the initial handoff capability; the later roadmap establishes full readiness and delivery evidence.
 
-The format is the one this repository is built with (see `context/feature-specs/README.md`), because it is proven to work. The plan also includes the project-level context documents a coding agent reads first.
+Use this repository's context-first format as a starting point, not proof that generated plans are correct. Validate coverage and test the exported workflow with a fresh agent. Specs 47–56 add the requirement, contract and readiness system needed for the full planning product.
 
 ## Read first
 
@@ -20,6 +20,8 @@ The format is the one this repository is built with (see `context/feature-specs/
 
    ```ts
    buildPlanSchema = {
+     schemaVersion: 1,
+     generationInputId: string,
      title: string,
      stack: { frontend?, backend?, database?, infrastructure?, other?: string[] },
      phases: Array<{ name: string, goal: string }>,
@@ -31,7 +33,7 @@ The format is the one this repository is built with (see `context/feature-specs/
        dependsOn: number[],       // earlier unit numbers only
        nodeIds: string[],         // canvas components this unit builds
        markdown: string,          // full unit spec in the README template
-     }>,                          // 5–40 units
+     }>,                          // 1–100 units in this preview; v2 hierarchy in spec 51
      contextDocs: {
        projectOverview: string,   // Markdown
        architectureContext: string,
@@ -45,21 +47,21 @@ The format is the one this repository is built with (see `context/feature-specs/
    - Numbers run 1..n with no gaps.
    - `dependsOn` only points backwards (so a topological order exists by construction).
    - Every phase is used.
-   - Every non-`client` and non-`external` canvas node is covered by at least one unit. Uncovered nodes are listed as a warning in the plan and are not fatal.
-   - Each unit's `markdown` contains the template's required headings (`## Goal`, `## Implementation`, `## Scope limits`, `## Check when done`).
+   - Every in-scope component is covered, including client/frontend work when it is part of the target project. External or excluded components need an explicit rationale. Missing coverage prevents ready export; partial plans may persist only as draft with blockers.
+   - Validate all required template sections, measurable checks, setup assumptions, risks and integration/release work. Heading presence alone does not prove an actionable plan. Each scope requirement from the brief has a coverage entry; stable structured requirements arrive in spec 47.
 
 3. **Task: `trigger/generate-build-plan.ts`** (kind `plan`, id `generate-build-plan`).
-   - Inputs: graph, brief, the latest spec's Markdown if one exists (strongly recommended; the UI warns without one), the lint findings from spec 38, and the user's optional `preferences` (≤ 1000 characters, for example "Next.js + Postgres, deploy on Vercel").
-   - Two model calls, to keep each one focused:
+   - Inputs: one immutable generation input, a linked spec from that same input when available, matching lint findings and bounded preferences. Reject stale combinations; a plan without required source detail is draft. Do not fetch a moving "latest" spec during a batch.
+   - Two generation stages (one outline call, then as many bounded batch calls as needed):
      1. the outline (stack, phases, unit titles, dependencies, node coverage)
-     2. the unit bodies and context docs, generated in batches of about 8 units with the outline supplied each time, so the units stay consistent
+     2. unit bodies in batches of at most 8 with pinned outline/context-contract inputs. Persist each completed batch with its outline hash and idempotency key; retries resume missing batches. Generate shared context documents once and validate cross-unit contracts after assembly.
    - Validate, with one repair attempt per call.
    - The first unit is always project setup (repository, tooling, CI, environment). A late unit covers observability and deployment. The prompt enforces both.
    - Persist:
      - Blob `plans/{projectId}/{random}.json`
      - Prisma `BuildPlan { id, projectId, runId @unique, title, filePath, unitCount, specId?, createdById, createdAt }`, with cascade and `@@index([projectId, createdAt])`
    - Chat: "Build plan ready: {n} units across {p} phases."
-   - `maxDuration: 600`.
+   - Bound each worker to `maxDuration: 600`; use durable child tasks/checkpoints for larger plans instead of stretching one request indefinitely. Charge all batch and repair calls to the run budget. Persist `generationInputId`, source hashes and readiness with BuildPlan.
 
 4. **Routes** (member):
    - `POST /api/ai/plan` with `{ roomId, preferences? }` → 202
@@ -81,7 +83,7 @@ The format is the one this repository is built with (see `context/feature-specs/
 ## Edge cases
 
 - The model outputs a forward dependency: validation rejects it and the repair pass must fix it. If it still fails, the run fails with "The plan had inconsistent dependencies". Never persist an invalid plan.
-- A huge design (100+ nodes): the unit cap of 40 still holds; units group related components.
+- A plan exceeding the preview cap is explicitly blocked with a decomposition requirement; do not merge unrelated work into oversized units just to fit. Spec 51 supports hierarchical plans and larger programs.
 
 ## Tests
 

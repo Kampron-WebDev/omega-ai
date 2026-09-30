@@ -52,6 +52,14 @@ Update this file whenever the current phase, active feature, or implementation s
 
 - None.
 
+## Roadmap review — 2026-09-30
+
+- Assessed all original specs and the implemented foundation against collaborative/autonomous planning and multi-session agent delivery. Findings and release gates: `context/roadmap-assessment.md`.
+- Corrected unimplemented specs 25–46 for snapshot ordering/validation, canonical chat trust, transactional run admission, cancellation/retry fencing, conflict-aware edits/undo, pinned generation inputs, package consistency, dependency declarations and non-truncating MCP reads.
+- Added planned specs 47–65 and `context/agentic-platform-contracts.md`: requirements/decisions, software profiles, system contracts, baselines/change impact, hierarchical plans, daily sessions, context provenance, reproducible packs, autonomous planning, verification, execution state, scoped reporting, repository intake/delivery, isolated execution, operations, evaluations and accessible launch workflows.
+- No future capability was implemented by this documentation review. Specs 01–21 remain complete and spec 22 remains the next implementation. Planning autonomy and optional code execution ship at separate evidence gates.
+- Documentation validation: 65 sequential spec files, existing/backward dependencies, complete template headings in all 19 new specs, matching roadmap/tracker entries and resolving local Markdown links. Application tests/build were not rerun because this change contains documentation only; prior runtime verification remains recorded separately.
+
 ## Next Up
 
 Build in this order. Each spec lists its dependencies; this order satisfies all of them.
@@ -81,6 +89,25 @@ Build in this order. Each spec lists its dependencies; this order satisfies all 
 - `44-platform-hardening.md` — headers, error pages, logging, health, Clerk migration
 - `45-personal-access-tokens.md` — hashed, revocable read tokens
 - `46-mcp-server.md` — read-only MCP server for coding agents
+- `47-requirements-discovery-decisions.md` — Requirements, Discovery and Decisions
+- `48-software-profiles.md` — Software Profiles and Support Levels
+- `49-product-system-contracts.md` — Product, Interface and System Contracts
+- `50-baselines-change-control.md` — Baselines, Revisions and Change Impact
+- `51-hierarchical-build-plans.md` — Hierarchical Plans and Requirement Coverage
+- `52-milestones-daily-scheduling.md` — Milestones, Daily Sessions and Capacity
+- `53-versioned-context-retrieval.md` — Versioned Context and Source Provenance
+- `54-reproducible-agent-pack.md` — Reproducible Agent Pack and Readiness
+- `55-autonomous-planning-controller.md` — Collaborative and Autonomous Planning
+- `56-verification-evidence-gates.md` — Verification Plans and Evidence Gates
+- `57-execution-ledger-resume.md` — Execution Ledger, Leases and Resumption
+- `58-scoped-agent-bridge.md` — Scoped Agent Reporting and MCP Bridge
+- `59-existing-repository-intake.md` — Existing Repository Intake and Drift
+- `60-repository-delivery-integration.md` — Pull Request Delivery and Integration
+- `61-isolated-execution-runtime.md` — Isolated Execution Runtime
+- `62-bounded-build-orchestration.md` — Bounded Autonomous Build Orchestration
+- `63-operations-data-lifecycle.md` — Operations, Data Lifecycle and Release Readiness
+- `64-agent-quality-evaluations.md` — Agent Quality Evaluations and Dogfooding
+- `65-workspace-accessibility-launch.md` — Workspace Usability, Accessibility and Launch Gates
 
 ## Open Questions
 
@@ -88,14 +115,17 @@ Reviewed on 2026-09-28 during the roadmap rewrite (specs 21–46). Questions a s
 
 ### Still open
 
-- **`Project.status` is unused by every spec.** `DRAFT`/`ARCHIVED` came from `05-prisma.md`, but nothing reads or writes it, and `DELETE` is a hard delete. Either wire `ARCHIVED` into an archive flow (a future spec) or drop the column in a migration.
+- **Runner provider/toolchain support:** spec 61 requires a measured isolation/capability decision before implementation; no hosting provider is selected by this roadmap.
 - **Error tracking vendor.** Spec 44 adds structured logs and error pages but deliberately no third-party error tracker (Sentry or similar). Choosing one is the user's decision.
-- **Enforcing CSP.** Spec 44 ships the Content Security Policy in report-only mode. Switching to enforcing mode needs a review of the recorded violations first.
-- **Feed author trust.** Liveblocks room tokens grant `room:write`, so a crafted client could post to the `ai-chat` feed directly. Spec 30 routes every legitimate message through the server and validates on render; revisit if Liveblocks adds feed-level permissions.
-- **End-to-end browser tests.** No spec adds Playwright, because signing in needs Clerk test users that write to the user's Clerk instance. That needs the user's say-so.
+- **Collaboration atomicity:** prove installed Liveblocks compare/update and revocation behavior while implementing 25–33; do not assume a fresh read makes a subsequent replace atomic. Block conflicting writes or deliver proposals if the required primitive cannot be established.
 
 ### Assigned to a spec
 
+- **Archive and full data erasure** → 63; the existing ARCHIVED status gains a real lifecycle.
+- **Feed author trust** → amended 30; canonical database messages and notification-only feeds, not schema-only trust.
+- **Authenticated browser/two-user verification** → 44 preview gate and 65 expanded suite; isolated authorized identities, not production account creation.
+- **CSP enforcement and skipped CI build** → amended 44 release criteria.
+- **Broader software support, multi-day plans and autonomy** → 47–65; evaluated profiles and explicit policy instead of universal claims.
 - **Nothing opens an existing project** → spec 22 (rows become links; recent projects on `/editor`).
 - **Failed project mutations have no user-visible error surface** → spec 22 (inline dialog errors, following the share dialog's pattern).
 - **Composite `@@index([ownerId, createdAt])`** → spec 25's migration.

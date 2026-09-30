@@ -20,7 +20,7 @@
 - New validation uses zod (declared in spec 21). The hand-rolled parsers in `lib/project-input.ts` stay until they need to change.
 - Environment variables are read only through `getServerEnv()` in `lib/env.ts`, never from `process.env` directly (except `NEXT_PUBLIC_*` in client code).
 - Every graph that crosses a boundary goes through `lib/canvas-schema.ts`.
-- Every realtime feed message is validated with the schemas in `types/tasks.ts` before it is rendered.
+- Realtime notifications are validated, then resolved to canonical server records before rendering authoritative chat/status or using them in prompts. A valid schema does not prove who wrote a feed message.
 - Every model output is validated with zod before it is used.
 
 ## Next.js
@@ -80,7 +80,7 @@
 - Every pure module in `lib/` gets unit tests next to it (`lib/foo.test.ts`).
 - Every new route handler gets tests for 401, 400, access denial, and success, with Prisma, Clerk, Liveblocks, Blob, and Trigger.dev mocked.
 - Hooks with real logic get jsdom tests (`// @vitest-environment jsdom`).
-- Tests never touch a real database, network, or model.
+- Default unit tests never touch a real database, network or model. Separately configured integration, browser and live-evaluation suites use isolated non-production infrastructure and explicit credentials/budgets. Transaction races, vendor behavior and rendered user flows require those suites; a mock is not equivalent evidence.
 - UI that was not observed in a browser is recorded as unobserved in `progress-tracker.md`.
 
 ## File Organization
@@ -92,3 +92,11 @@
 - `components/` — UI composition only; no business logic.
 - `app/api/` — route handlers for auth, triggering, and persistence.
 - Name files after the responsibility they contain, not the technology.
+
+## Versioned artifacts and agent authority (planned)
+
+- Follow `agentic-platform-contracts.md`. Use schema versions, stable domain IDs, exact input hashes and immutable revisions; never resolve a changing latest artifact midway through generation/export.
+- Canonical machine-readable records drive Markdown views, readiness, scheduling and execution state. Validate links, DAGs, requirement coverage and contract compatibility as well as JSON shape.
+- Use transactional admission and durable outboxes before dispatching work. Apply fencing/compare-and-set to state transitions and persist external-effect identities for recovery. Do not claim exactly-once remote effects without provider support.
+- Do not execute uploaded sources or generated shell strings. Execution belongs in the authorized isolated runner, with structured arguments, bounded resources and narrow secrets.
+- Every verification report names its criteria, definition hash, baseline/commit, environment and provenance. Agents cannot approve their own authority changes or silently waive mandatory checks.

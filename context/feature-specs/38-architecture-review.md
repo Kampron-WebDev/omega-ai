@@ -4,7 +4,7 @@
 
 ## Goal
 
-Give every design a senior reviewer. A review combines **deterministic lint rules** (instant, free, always right about structure) with an **AI review** (judgment about reliability, security, scalability, cost, and operability). Each finding points at the exact nodes and edges involved. Clicking a finding shows the problem on the canvas, and "Fix with AI" hands the recommendation to the design agent, closing the design → review → fix loop.
+Combine deterministic structural checks and explicit architecture heuristics with an AI review of reliability, security, scalability, cost and operability. Heuristics are not proofs: a local database or client SDK may be legitimate. Findings state assumptions and confidence, link to affected elements and feed a review/fix workflow.
 
 ## Read first
 
@@ -46,7 +46,7 @@ Give every design a senior reviewer. A review combines **deterministic lint rule
    `lintArchitecture(graph)` returns findings in a deterministic order.
 
 3. **AI review task: `trigger/review-architecture.ts`** (kind `review`, id `review-architecture`).
-   - Inputs: the graph, the brief, and the lint findings. The model is told not to repeat them.
+   - Inputs: one immutable generation input (spec 35), its graph/brief and lint findings. Persist its ID/hash with the review; the model is told not to repeat lint findings. Classify heuristic versus structural findings and allow documented dismissals.
    - Structured output: `{ summary, findings[] }` with `source: "ai"`. Findings referencing unknown IDs have those IDs dropped. A finding left with no valid reference and severity above `info` is kept as project-wide.
    - Merge the lint and AI findings, sort by severity, then category.
    - Persist:
@@ -65,7 +65,7 @@ Give every design a senior reviewer. A review combines **deterministic lint rule
    - Findings grouped by severity. Each shows title, category, a `lint` or `AI` badge, the detail (Markdown), and the recommendation.
    - Clicking a finding calls a new `CanvasFlowHandle.focusElements(nodeIds, edgeIds)`: select them and `fitView` to them. The canvas room owns the handle, so the sidebar reaches it through the shell, the same way `importTemplate` does.
    - "Fix with AI" switches to AI Architect and fills the composer with "Address this review finding: {title}. {recommendation}". It does not auto-send.
-   - "Stale" badge when the canvas changed after the review (compare `createdAt` with the autosave `canvasSavedAt`).
+   - "Stale" badge when current semantic graph/brief hashes differ from the review's generation input. Autosave timestamps alone are insufficient and layout-only changes need not invalidate semantic findings.
    - The lint results show instantly at the top as "Quick checks", even before any AI review exists.
 
 ## Scope limits

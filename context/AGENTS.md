@@ -17,6 +17,7 @@ Read the following files in order before implementing or making any architectura
 5. `context/ai-workflow-rules.md` — development workflow, scoping rules, and delivery approach
 6. `context/progress-tracker.md` — current phase, completed work, open questions, and next steps
 7. `context/feature-specs/README.md` — roadmap, shared conventions, spec template, and definition of done
+8. `context/agentic-platform-contracts.md` — planned shared contracts for versioned artifacts, agent authority, execution and evidence; apply only with the corresponding implementation specs
 
 Update `context/progress-tracker.md` after each meaningful implementation change.
 

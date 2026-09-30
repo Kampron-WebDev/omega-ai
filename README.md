@@ -22,6 +22,10 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 ## Development
 
+### Product roadmap
+
+See the [feature roadmap](context/feature-specs/README.md), [roadmap assessment](context/roadmap-assessment.md), and [agentic platform contracts](context/agentic-platform-contracts.md). The roadmap separates collaborative/autonomous planning and complete build packages from later connected delivery and isolated code execution. Implementation status lives in [the progress tracker](context/progress-tracker.md); future specs are not shipped features.
+
 ### Environment variables
 
 Copy `.env.example` to `.env.local` and fill in every value. The file comments say where each one comes from.

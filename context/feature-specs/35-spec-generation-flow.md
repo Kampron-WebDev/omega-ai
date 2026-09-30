@@ -11,6 +11,12 @@ Turn the current design into a Markdown technical specification that a team, or 
 - `lib/canvas-room.ts`, `lib/project-brief.ts`, `lib/ai/model.ts`, `lib/ai/limits.ts`, `lib/trigger-runs.ts`, `trigger/design-agent.ts`: follow its structure
 - `types/tasks.ts` (`AiTaskKind` already includes `"spec"`)
 
+## Generation input contract
+
+Create `lib/generation-inputs.ts` and a `GenerationInput` metadata model before generating artifacts. Capture immutable private content containing graph, brief, canonical chat IDs/content and optional source artifact IDs, with schema version and canonical hash. Capture graph/brief consistently using the collaboration API; record a revision vector and retry boundedly on change. The resulting `generationInputId` is carried by the spec, review, plan and export. Spec 50 extends this into full project baselines.
+
+Never combine a graph from one input with a spec generated from another without an explicit stale-input rejection or regeneration. Provider/model/prompt version and truncation/completeness status are artifact metadata. A generated Markdown file with a missing component stub or omitted mandatory context is draft, never build-ready.
+
 ## Implementation
 
 1. **Mermaid serializer: `lib/canvas-mermaid.ts`** (pure; reused by spec 41's export).
@@ -78,12 +84,12 @@ Turn the current design into a Markdown technical specification that a team, or 
    - Payload: `AiTaskPayload & { focus?: string }`.
    - Flow:
      1. RUNNING; status "Reading the design…"; agent thinking
-     2. read graph, brief, and chat
+     2. freeze or resolve the generation input, then read its graph, brief and canonical chat
      3. refuse an empty canvas with a friendly failed status ("Add some components before generating a spec")
      4. generate the sections ("Writing the specification…"), with one repair attempt on schema failure
      5. assemble
      6. status completed; presence cleared; run COMPLETED
-   - Returns `{ title, markdown }` as the run output. Spec 36 changes this to persist the result and return `{ specId }`.
+   - Persist generated content privately as a draft artifact even before spec 36 adds the full catalog; return IDs/metadata only. Do not expose complete private project content through provider run output or logs. Spec 36 adds the `ProjectSpec` catalog reference.
    - Records usage (spec 34). `maxAttempts: 2`, `maxDuration: 240`.
    - No canvas writes and no checkpoint.
 
@@ -93,13 +99,13 @@ Turn the current design into a Markdown technical specification that a team, or 
 
 ## Scope limits
 
-- No persistence (spec 36) and no UI (spec 37).
+- No spec catalog UI (specs 36–37); minimal immutable input/output persistence is required here for consistent downstream artifacts.
 - No per-section regeneration.
 
 ## Edge cases
 
 - Labels containing Mermaid syntax (`-->`, `[`, `"`) must still produce a diagram that parses. The tests cover this.
-- A very large graph (300 nodes): chunking is out of scope. If the context exceeds the budget in `lib/ai/limits.ts`, component descriptions are truncated first. The spec header notes when this happened.
+- A very large graph: use bounded component batches and an explicit coverage check, or fail with an actionable capacity error. Never silently truncate accepted constraints or declare stubbed/missing components complete. Persist partial results as draft.
 
 ## Tests
 

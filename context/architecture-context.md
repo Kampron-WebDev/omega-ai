@@ -11,8 +11,8 @@ Sections marked *(planned: spec NN)* describe architecture that the roadmap in `
 | Auth             | Clerk                              | User identity and route protection                             |
 | Database         | Prisma + PostgreSQL                | Relational metadata: projects, collaborators, specs, task runs |
 | Canvas           | Liveblocks + React Flow            | Real-time collaborative canvas, presence, cursors, feeds       |
-| Validation       | zod *(planned: spec 21)*           | Every boundary: requests, env, canvas graphs, AI output        |
-| Testing          | Vitest *(planned: spec 21)*        | Unit and route tests; CI on every push                         |
+| Validation       | zod *(installed: spec 21)*         | Env today; later boundary schemas added with their features   |
+| Testing          | Vitest *(installed: spec 21)*      | Unit tests; route, integration and browser suites expand with features |
 | Layout           | elkjs *(planned: spec 27)*         | Deterministic canvas layout in the browser and in tasks        |
 | Background tasks | Trigger.dev *(planned: spec 31)*   | Durable AI workflows                                           |
 | AI               | AI SDK + Gemini *(spec 33)*        | Structured output; provider named only in `lib/ai/model.ts`    |
@@ -35,7 +35,7 @@ Sections marked *(planned: spec NN)* describe architecture that the roadmap in `
 
 - **Database:** metadata, ownership, relationships, task runs, and artifact references.
 - **Liveblocks Storage:** the live canvas (the default `useLiveblocksFlow` key) and the project brief (`brief`, planned: spec 28). This is the source of truth while people are editing.
-- **Liveblocks Feeds:** `ai-chat` (room conversation) and `ai-status-feed` (AI run status). Planned: specs 29–30.
+- **Canonical chat and run state:** bounded PostgreSQL records with server-verified authorship and monotonic event order (planned: 30–31). `ai-chat` and `ai-status-feed` are notification projections, not trusted sources for model context or authorization.
 - **Vercel Blob:** durable artifacts, always written by the server. Blob URLs are stored in the database and never sent to the browser.
 
 | Artifact | Blob key | Database reference |
@@ -45,6 +45,9 @@ Sections marked *(planned: spec NN)* describe architecture that the roadmap in `
 | Technical spec | `specs/{projectId}/{random}.md` | `ProjectSpec.filePath` |
 | Architecture review | `reviews/{projectId}/{random}.json` | `ArchitectureReview.filePath` |
 | Build plan | `plans/{projectId}/{random}.json` | `BuildPlan.filePath` |
+| Frozen generation input | `inputs/{projectId}/{id}.json` | `GenerationInput` (35) |
+| Baseline manifest | `baselines/{projectId}/{id}.json` | `ProjectBaseline` (50) |
+| Contract/source/evidence | private, project-scoped versioned keys | indexed revision metadata (49, 53, 56) |
 
 Snapshot format: `{ schemaVersion, savedAt, nodes, edges, brief? }`. Version 1 has no brief; version 2 (spec 28) adds it. Readers accept every version.
 
@@ -56,7 +59,7 @@ Snapshot format: `{ schemaVersion, savedAt, nodes, edges, brief? }`. Version 1 h
 - Page routes are gated in `proxy.ts`. `app/api` routes authenticate inside each handler instead, so they can answer `401`/`403` as JSON rather than the `404` Clerk's `auth.protect()` returns for non-page requests. Spec 44 moves page routes to resource-level checks as well.
 - Only the owner or a collaborator (a *member*) can read or mutate project resources. Rename, delete, and sharing are owner-only.
 - Liveblocks room tokens are issued only after verifying project membership. The room ID is the project ID.
-- Personal access tokens (spec 45) resolve to the same identity as a session, and are read-only.
+- Personal access tokens (45) remain read-only. Separate execution credentials (58) add only project/execution/revision-scoped reporting and claims; they cannot approve policy, manage membership or deploy. Recheck membership before queued side effects; an explicit invalid bearer credential never falls back to a cookie.
 
 ## Starter System Designs
 
@@ -70,8 +73,8 @@ Snapshot format: `{ schemaVersion, savedAt, nodes, edges, brief? }`. Version 1 h
 
 ### Common to every AI task
 
-- Started by a route through `lib/trigger-runs.ts`, which enforces rate limits and **one active run per project**, and records a `TaskRun`.
-- Context is read **on the server** from the room (graph, brief, chat, open comment threads). A graph, a chat history, or a project ID from the client is never trusted.
+- Admitted through `lib/trigger-runs.ts`: one planning writer per project, transactionally reserved with a TaskRun, idempotency key and durable dispatch outbox before any worker starts. Heartbeat leases, fencing epochs and reconciled effect IDs govern retries/cancellation.
+- Context is read server-side from validated room state, canonical chat and authorized sources, then frozen for artifact generation. Client-supplied graph/history/identity is never authoritative. Approved baseline inputs take precedence over changing live state.
 - All user-authored content in prompts is fenced as untrusted data.
 - Model output is validated with zod. One repair attempt, then the run fails.
 - Progress goes to `ai-status-feed`, replies go to `ai-chat`, and AI presence appears as the Liveblocks user `omega-ai`.
@@ -98,9 +101,24 @@ Snapshot format: `{ schemaVersion, savedAt, nodes, edges, brief? }`. Version 1 h
 
 1. Request handlers do not run long-lived or AI work — that belongs in background tasks.
 2. Metadata and large generated artifacts are stored in separate layers.
-3. Auth and access are enforced at every read and mutation boundary. Personal access tokens never mutate.
+3. Auth and access are enforced at every boundary, including deferred effects. Personal read tokens never mutate; execution credentials have explicit narrow scopes and cannot expand authority.
 4. Client components are used only where browser interactivity or real-time state requires them.
 5. The canvas schema is the same for user-created content, templates, snapshots, imports, and AI output, and `lib/canvas-schema.ts` is its only validator.
 6. No model output reaches the canvas, the database, or Blob without schema validation.
 7. Every AI change to the canvas is preceded by a checkpoint.
 8. The server is the only writer of Blob artifacts. Blob URLs never reach the browser.
+9. Generated artifacts, exports and agent context refer to exact immutable inputs. A plan cannot silently combine old contracts with a live graph.
+10. Requirement coverage and explicit blockers determine readiness; authenticated evidence determines verification. Completion text from an agent is not evidence.
+11. Human edits are preserved through conditional changes, impact analysis and revision-bound approvals. A checkpoint is not permission to overwrite later work.
+12. Planning autonomy is separate from execution/publication/deployment authority. Imported content and model output cannot grant permissions.
+
+## Extended platform boundaries (planned: 47–65)
+
+- `lib/requirements`, `lib/decisions`, `lib/contracts` and `lib/baselines` own versioned intent and accepted system contracts. Structured records are canonical; the brief and diagrams are views, not the whole product model.
+- `lib/profiles` defines target-software capabilities and readiness, independent of Omega's own framework. Experimental targets remain labelled until tested.
+- `lib/build-plan`, `lib/scheduling`, `lib/context` and `lib/agent-pack` generate deterministic dependency views, session forecasts and portable exact-revision context. One canvas view stays bounded while a program can span multiple views/plans.
+- `trigger/plan-project.ts` orchestrates resumable planning under policy. `trigger/execute-build.ts` later orchestrates separately authorized build attempts. Neither control plane executes untrusted project code directly.
+- `lib/execution` owns leases, events, evidence gates and runner coordination. `lib/repository` owns pinned intake and reviewable delivery. Provider credentials and user code run in separate trust boundaries.
+- The optional runner adapter executes in isolated external environments, never the Next.js process/host. Start with one proven provider; choose it through a documented capability/security decision before implementing 61.
+- PostgreSQL is authoritative for policy, revisions, leases, event sequences, progress and evidence metadata. Private Blob stores large content; realtime projections and search indexes are rebuildable.
+- `context/agentic-platform-contracts.md` specifies shared identity, schemas, state transitions, access, limits and consistency rules. `context/roadmap-assessment.md` specifies release gates. Neither marks future features implemented.
