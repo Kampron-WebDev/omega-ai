@@ -7,6 +7,7 @@ import {
   listCollaboratorsRequest,
   removeCollaboratorRequest,
 } from "@/lib/collaborator-api"
+import { readErrorMessage } from "@/lib/error-message"
 import type { Collaborator } from "@/types/collaborator"
 
 /** Stable empty list, so "not loaded yet" does not churn the memo below. */
@@ -43,10 +44,6 @@ interface CollaboratorsController {
   /** The collaborator being removed, so only that row shows a spinner. */
   removingId: string | null
   remove: (collaborator: Collaborator) => void
-}
-
-function readErrorMessage(error: unknown, fallback: string): string {
-  return error instanceof Error && error.message !== "" ? error.message : fallback
 }
 
 /**

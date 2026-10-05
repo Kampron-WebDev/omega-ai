@@ -10,6 +10,8 @@ interface Project {
   name: string
   slug: string
   role: ProjectRole
+  /** When the project row last changed, as an ISO 8601 string. */
+  updatedAt: string
 }
 
 /**

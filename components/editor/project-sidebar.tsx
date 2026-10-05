@@ -22,6 +22,12 @@ interface ProjectSidebarProps {
   className?: string
 }
 
+/**
+ * Below the `md` breakpoint the open sidebar covers the page, so opening a
+ * project from it has to get it out of the way. Wider screens keep it open.
+ */
+const SMALL_SCREEN_QUERY = "(max-width: 767px)"
+
 function ProjectSidebarEmptyState({ children }: { children: string }) {
   return (
     <p className="flex h-32 items-center justify-center text-center text-sm text-muted-foreground">
@@ -41,6 +47,12 @@ function ProjectSidebar({
   onDeleteProject,
   className,
 }: ProjectSidebarProps) {
+  function handleNavigate() {
+    if (window.matchMedia(SMALL_SCREEN_QUERY).matches) {
+      onClose()
+    }
+  }
+
   return (
     <>
       {/*
@@ -112,6 +124,7 @@ function ProjectSidebar({
                       isActive={project.id === activeProjectId}
                       onRename={onRenameProject}
                       onDelete={onDeleteProject}
+                      onNavigate={handleNavigate}
                     />
                   ))}
                 </ul>
@@ -134,6 +147,7 @@ function ProjectSidebar({
                       isActive={project.id === activeProjectId}
                       onRename={onRenameProject}
                       onDelete={onDeleteProject}
+                      onNavigate={handleNavigate}
                     />
                   ))}
                 </ul>

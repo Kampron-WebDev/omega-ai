@@ -19,6 +19,7 @@ interface CreateProjectDialogProps {
   open: boolean
   name: string
   slugPreview: string
+  error: string | null
   isSubmitting: boolean
   canSubmit: boolean
   onNameChange: (name: string) => void
@@ -28,11 +29,13 @@ interface CreateProjectDialogProps {
 
 const NAME_INPUT_ID = "create-project-name"
 const SLUG_PREVIEW_ID = "create-project-slug"
+const ERROR_ID = "create-project-error"
 
 function CreateProjectDialog({
   open,
   name,
   slugPreview,
+  error,
   isSubmitting,
   canSubmit,
   onNameChange,
@@ -70,7 +73,8 @@ function CreateProjectDialog({
               autoComplete="off"
               spellCheck={false}
               disabled={isSubmitting}
-              aria-describedby={SLUG_PREVIEW_ID}
+              aria-invalid={error ? true : undefined}
+              aria-describedby={error ? `${SLUG_PREVIEW_ID} ${ERROR_ID}` : SLUG_PREVIEW_ID}
             />
             <p
               id={SLUG_PREVIEW_ID}
@@ -84,10 +88,14 @@ function CreateProjectDialog({
             </p>
           </div>
 
+          {error ? (
+            <p id={ERROR_ID} role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          ) : null}
+
           <DialogFooter>
-            <DialogClose
-              render={<Button variant="outline" disabled={isSubmitting} />}
-            >
+            <DialogClose render={<Button variant="outline" />}>
               Cancel
             </DialogClose>
             <Button type="submit" disabled={!canSubmit}>

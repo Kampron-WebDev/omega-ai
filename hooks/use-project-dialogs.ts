@@ -1,7 +1,8 @@
 "use client"
 
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useMemo, useRef, useState } from "react"
 
+import { readErrorMessage } from "@/lib/error-message"
 import { slugify } from "@/lib/slug"
 import type {
   Project,
@@ -12,8 +13,8 @@ import type {
 interface UseProjectDialogsOptions {
   /**
    * Called with the confirmed mutation when a dialog is submitted. May be async:
-   * the dialog stays open and reports a loading state until it settles, and only
-   * closes if it resolves.
+   * the dialog stays open and reports a loading state until it settles, closes
+   * if it resolves, and shows the thrown message if it rejects.
    */
   onSubmit?: (intent: ProjectDialogIntent) => void | Promise<void>
 }
@@ -29,6 +30,8 @@ interface ProjectDialogsController {
   name: string
   /** Live slug derived from `name`. Empty when the name has nothing sluggable. */
   slugPreview: string
+  /** Why the last submit failed, shown inline in the open dialog. */
+  error: string | null
   isSubmitting: boolean
   canSubmit: boolean
   setName: (name: string) => void
@@ -39,11 +42,17 @@ interface ProjectDialogsController {
   submit: () => void
 }
 
+const FALLBACK_ERRORS: Record<ProjectDialogKind, string> = {
+  create: "Couldn't create the project.",
+  rename: "Couldn't rename the project.",
+  delete: "Couldn't delete the project.",
+}
+
 /**
  * Owns every piece of project-dialog state: which dialog is open, the name being
- * edited, the derived slug, and the in-flight submit state. Keeping it in one
- * hook means the editor home, the sidebar, and the dialogs all drive the same
- * state instead of each holding a copy.
+ * edited, the derived slug, the in-flight submit state, and the last error.
+ * Keeping it in one hook means the editor home, the sidebar, and the dialogs all
+ * drive the same state instead of each holding a copy.
  */
 function useProjectDialogs(
   options: UseProjectDialogsOptions = {}
@@ -52,8 +61,18 @@ function useProjectDialogs(
 
   const [openDialog, setOpenDialog] = useState<ProjectDialogKind | null>(null)
   const [activeProject, setActiveProject] = useState<Project | null>(null)
-  const [name, setName] = useState("")
+  const [name, setNameState] = useState("")
+  const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // Every open and close starts a new session. A submit remembers the session
+  // it began in, so a result that lands after the dialog was closed (or
+  // reopened for something else) cannot close, or show an error in, a dialog
+  // it no longer belongs to.
+  const sessionRef = useRef(0)
+  // The session with a request in flight. A ref rather than state, because two
+  // clicks in the same frame both run before a state update would re-render.
+  const inFlightSessionRef = useRef<number | null>(null)
 
   const trimmedName = name.trim()
   const slugPreview = useMemo(() => slugify(name), [name])
@@ -75,35 +94,58 @@ function useProjectDialogs(
     }
   }, [activeProject, isSubmitting, openDialog, slugPreview, trimmedName])
 
+  const startSession = useCallback(
+    (dialog: ProjectDialogKind | null, project: Project | null, initialName: string) => {
+      sessionRef.current += 1
+      setError(null)
+      setIsSubmitting(false)
+      setNameState(initialName)
+      // The project is kept on close so the dialog's content survives its exit
+      // animation.
+      if (dialog !== null) {
+        setActiveProject(project)
+      }
+      setOpenDialog(dialog)
+    },
+    []
+  )
+
+  const setName = useCallback((value: string) => {
+    setNameState(value)
+    setError(null)
+  }, [])
+
   const openCreateDialog = useCallback(() => {
-    setActiveProject(null)
-    setName("")
-    setOpenDialog("create")
-  }, [])
+    startSession("create", null, "")
+  }, [startSession])
 
-  const openRenameDialog = useCallback((project: Project) => {
-    setActiveProject(project)
-    setName(project.name)
-    setOpenDialog("rename")
-  }, [])
+  const openRenameDialog = useCallback(
+    (project: Project) => {
+      startSession("rename", project, project.name)
+    },
+    [startSession]
+  )
 
-  const openDeleteDialog = useCallback((project: Project) => {
-    setActiveProject(project)
-    setName(project.name)
-    setOpenDialog("delete")
-  }, [])
+  const openDeleteDialog = useCallback(
+    (project: Project) => {
+      startSession("delete", project, project.name)
+    },
+    [startSession]
+  )
 
   const closeDialog = useCallback(() => {
-    // A dialog must not disappear out from under an in-flight submit.
-    if (isSubmitting) {
-      return
-    }
-
+    // Allowed mid-submit: the request carries on, but its result is ignored
+    // (see `sessionRef`). The name is kept for the exit animation.
+    sessionRef.current += 1
+    setError(null)
+    setIsSubmitting(false)
     setOpenDialog(null)
-  }, [isSubmitting])
+  }, [])
 
   const submit = useCallback(() => {
-    if (!canSubmit) {
+    const session = sessionRef.current
+
+    if (!canSubmit || openDialog === null || inFlightSessionRef.current === session) {
       return
     }
 
@@ -128,8 +170,6 @@ function useProjectDialogs(
           intent = { kind: "delete", project: activeProject }
         }
         break
-      default:
-        intent = null
     }
 
     if (!intent) {
@@ -137,19 +177,31 @@ function useProjectDialogs(
     }
 
     const confirmedIntent = intent
+    const fallbackError = FALLBACK_ERRORS[openDialog]
 
     const run = async () => {
+      inFlightSessionRef.current = session
       setIsSubmitting(true)
+      setError(null)
 
       try {
         await onSubmit?.(confirmedIntent)
-        setOpenDialog(null)
-      } catch (error) {
-        // No error surface is defined for this phase; keep the dialog open with
-        // the user's input intact rather than swallowing the failure silently.
-        console.error("Project dialog submit failed", error)
+
+        if (sessionRef.current === session) {
+          setOpenDialog(null)
+        }
+      } catch (submitError) {
+        if (sessionRef.current === session) {
+          setError(readErrorMessage(submitError, fallbackError))
+        }
       } finally {
-        setIsSubmitting(false)
+        if (inFlightSessionRef.current === session) {
+          inFlightSessionRef.current = null
+        }
+
+        if (sessionRef.current === session) {
+          setIsSubmitting(false)
+        }
       }
     }
 
@@ -161,6 +213,7 @@ function useProjectDialogs(
     activeProject,
     name,
     slugPreview,
+    error,
     isSubmitting,
     canSubmit,
     setName,

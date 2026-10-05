@@ -12,6 +12,9 @@ import type { Project } from "@/types/project"
 interface EditorHomeShellProps {
   ownedProjects: Project[]
   sharedProjects: Project[]
+  recentProjects: Project[]
+  /** The server's render time as an ISO string; see `RecentProjects`. */
+  now: string
 }
 
 /**
@@ -21,7 +24,12 @@ interface EditorHomeShellProps {
  * here fetches them — so this stays a thin client boundary around state that
  * genuinely needs the browser.
  */
-function EditorHomeShell({ ownedProjects, sharedProjects }: EditorHomeShellProps) {
+function EditorHomeShell({
+  ownedProjects,
+  sharedProjects,
+  recentProjects,
+  now,
+}: EditorHomeShellProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const dialogs = useProjectActions()
 
@@ -40,7 +48,11 @@ function EditorHomeShell({ ownedProjects, sharedProjects }: EditorHomeShellProps
         onRenameProject={dialogs.openRenameDialog}
         onDeleteProject={dialogs.openDeleteDialog}
       />
-      <EditorHome onCreateProject={dialogs.openCreateDialog} />
+      <EditorHome
+        onCreateProject={dialogs.openCreateDialog}
+        recentProjects={recentProjects}
+        now={now}
+      />
       <ProjectDialogs controller={dialogs} />
     </div>
   )

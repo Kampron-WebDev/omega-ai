@@ -20,6 +20,7 @@ function ProjectDialogs({ controller }: ProjectDialogsProps) {
     activeProject,
     name,
     slugPreview,
+    error,
     isSubmitting,
     canSubmit,
     setName,
@@ -39,6 +40,7 @@ function ProjectDialogs({ controller }: ProjectDialogsProps) {
         open={openDialog === "create"}
         name={name}
         slugPreview={slugPreview}
+        error={error}
         isSubmitting={isSubmitting}
         canSubmit={canSubmit}
         onNameChange={setName}
@@ -50,6 +52,7 @@ function ProjectDialogs({ controller }: ProjectDialogsProps) {
         open={openDialog === "rename"}
         project={activeProject}
         name={name}
+        error={error}
         isSubmitting={isSubmitting}
         canSubmit={canSubmit}
         onNameChange={setName}
@@ -60,6 +63,7 @@ function ProjectDialogs({ controller }: ProjectDialogsProps) {
       <DeleteProjectDialog
         open={openDialog === "delete"}
         project={activeProject}
+        error={error}
         isSubmitting={isSubmitting}
         canSubmit={canSubmit}
         onOpenChange={handleOpenChange}

@@ -11,11 +11,12 @@ import type { Project, ProjectIdentity, ProjectRole } from "@/types/project"
  */
 
 /** Only what `types/project.ts`'s `Project` needs; `slug` is derived, not stored. */
-const PROJECT_FIELDS = { id: true, name: true } as const
+const PROJECT_FIELDS = { id: true, name: true, updatedAt: true } as const
 
 interface ProjectRow {
   id: string
   name: string
+  updatedAt: Date
 }
 
 interface ProjectLists {
@@ -34,7 +35,13 @@ type OwnedProjectResult =
  * rename changes the slug freely without moving any state.
  */
 function toProject(row: ProjectRow, role: ProjectRole): Project {
-  return { id: row.id, name: row.name, slug: slugify(row.name), role }
+  return {
+    id: row.id,
+    name: row.name,
+    slug: slugify(row.name),
+    role,
+    updatedAt: row.updatedAt.toISOString(),
+  }
 }
 
 /**

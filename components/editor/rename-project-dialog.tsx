@@ -20,6 +20,7 @@ interface RenameProjectDialogProps {
   open: boolean
   project: Project | null
   name: string
+  error: string | null
   isSubmitting: boolean
   canSubmit: boolean
   onNameChange: (name: string) => void
@@ -28,11 +29,13 @@ interface RenameProjectDialogProps {
 }
 
 const NAME_INPUT_ID = "rename-project-name"
+const ERROR_ID = "rename-project-error"
 
 function RenameProjectDialog({
   open,
   project,
   name,
+  error,
   isSubmitting,
   canSubmit,
   onNameChange,
@@ -96,13 +99,19 @@ function RenameProjectDialog({
               autoComplete="off"
               spellCheck={false}
               disabled={isSubmitting}
+              aria-invalid={error ? true : undefined}
+              aria-describedby={error ? ERROR_ID : undefined}
             />
           </div>
 
+          {error ? (
+            <p id={ERROR_ID} role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          ) : null}
+
           <DialogFooter>
-            <DialogClose
-              render={<Button variant="outline" disabled={isSubmitting} />}
-            >
+            <DialogClose render={<Button variant="outline" />}>
               Cancel
             </DialogClose>
             <Button type="submit" disabled={!canSubmit}>

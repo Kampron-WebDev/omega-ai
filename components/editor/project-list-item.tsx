@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { Pencil, Trash2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -12,6 +13,8 @@ interface ProjectListItemProps {
   isActive?: boolean
   onRename: (project: Project) => void
   onDelete: (project: Project) => void
+  /** Called when the row's link starts a client-side navigation. */
+  onNavigate?: () => void
 }
 
 // Revealed on hover or keyboard focus, and always visible on touch devices,
@@ -24,6 +27,7 @@ function ProjectListItem({
   isActive = false,
   onRename,
   onDelete,
+  onNavigate,
 }: ProjectListItemProps) {
   // Only the owner can rename or delete a project; collaborators see the entry
   // without actions.
@@ -31,15 +35,22 @@ function ProjectListItem({
 
   return (
     <li
-      // The row is not a link yet, so `aria-current` is the only thing telling
-      // assistive tech which project is open.
-      aria-current={isActive ? "true" : undefined}
       className={cn(
         "group/project flex items-center gap-1 rounded-lg px-2 py-1.5 transition-colors hover:bg-muted/60 focus-within:bg-muted/60",
         isActive && "bg-accent-dim text-foreground"
       )}
     >
-      <div className="flex min-w-0 flex-1 flex-col">
+      {/*
+        Only the name and slug are the link. The rename and delete buttons are
+        its siblings, never inside it, so no interactive element is nested in
+        another.
+      */}
+      <Link
+        href={`/editor/${project.id}`}
+        aria-current={isActive ? "page" : undefined}
+        onNavigate={onNavigate}
+        className="flex min-w-0 flex-1 flex-col rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+      >
         <span
           className={cn(
             "truncate text-sm text-foreground",
@@ -51,7 +62,7 @@ function ProjectListItem({
         <span className="truncate font-mono text-xs text-muted-foreground">
           {project.slug}
         </span>
-      </div>
+      </Link>
 
       {canManage ? (
         <div className={cn("flex shrink-0 items-center gap-0.5", ACTIONS_VISIBILITY)}>
