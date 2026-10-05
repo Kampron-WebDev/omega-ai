@@ -4,7 +4,7 @@
 
 Omega AI is a collaborative and agentic software-planning and delivery platform. A person or team supplies an idea, requirements or an existing repository. Humans and agents refine requirements, decisions, architecture and contracts together, or the owner authorizes bounded autonomous planning. Omega produces a complete, versioned folder that coding agents can build from across sessions and days, with measurable acceptance criteria and resumable progress.
 
-The foundation covers **discover → design → review → specify → plan → hand off**. Later releases add **implement → verify → integrate → operate** through scoped external agents and optional isolated execution. The roadmap describes the destination; the implemented app currently ends at spec 22 (project navigation and error surfaces).
+The foundation covers **discover → design → review → specify → plan → hand off**. Later releases add **implement → verify → integrate → operate** through scoped external agents and optional isolated execution. The roadmap describes the destination; the implemented app currently ends at spec 23 (canvas schema and semantic metadata).
 
 ## Goals
 

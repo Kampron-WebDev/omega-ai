@@ -58,14 +58,81 @@ const DEFAULT_NODE_SIZES: Record<NodeShapeId, CanvasNodeSize> = {
   hexagon: { width: 168, height: 112 },
 }
 
+/**
+ * What a node is, independent of how it is drawn. The AI, the spec generator,
+ * and exports read `kind`; shape and color stay free for the user to change.
+ * Each kind's defaults are what a new node of that kind looks like.
+ */
+const NODE_KINDS = [
+  { id: "client", label: "Client", defaultShape: "circle", defaultColor: "neutral" },
+  { id: "frontend", label: "Frontend", defaultShape: "rectangle", defaultColor: "blue" },
+  { id: "gateway", label: "API Gateway", defaultShape: "hexagon", defaultColor: "purple" },
+  { id: "load-balancer", label: "Load Balancer", defaultShape: "diamond", defaultColor: "purple" },
+  { id: "service", label: "Service", defaultShape: "rectangle", defaultColor: "blue" },
+  { id: "worker", label: "Worker", defaultShape: "pill", defaultColor: "teal" },
+  { id: "function", label: "Function", defaultShape: "pill", defaultColor: "teal" },
+  { id: "database", label: "Database", defaultShape: "cylinder", defaultColor: "green" },
+  { id: "cache", label: "Cache", defaultShape: "cylinder", defaultColor: "orange" },
+  { id: "queue", label: "Queue / Stream", defaultShape: "pill", defaultColor: "orange" },
+  { id: "storage", label: "Object Storage", defaultShape: "cylinder", defaultColor: "neutral" },
+  { id: "search", label: "Search", defaultShape: "rectangle", defaultColor: "pink" },
+  { id: "auth", label: "Auth / Identity", defaultShape: "hexagon", defaultColor: "red" },
+  { id: "external", label: "External System", defaultShape: "hexagon", defaultColor: "neutral" },
+  { id: "generic", label: "Generic", defaultShape: "rectangle", defaultColor: "neutral" },
+] as const satisfies readonly {
+  id: string
+  label: string
+  defaultShape: NodeShapeId
+  defaultColor: NodeColorId
+}[]
+
+type NodeKindId = (typeof NODE_KINDS)[number]["id"]
+
+/** The kind of a node dropped from the shape panel, and of any legacy node. */
+const DEFAULT_NODE_KIND: NodeKindId = "generic"
+
+/** How one component talks to another. */
+const EDGE_PROTOCOLS = [
+  "http",
+  "grpc",
+  "graphql",
+  "websocket",
+  "event",
+  "sql",
+  "tcp",
+  "other",
+] as const
+
+type EdgeProtocolId = (typeof EDGE_PROTOCOLS)[number]
+
+const EDGE_PROTOCOL_LABELS: Record<EdgeProtocolId, string> = {
+  http: "HTTP",
+  grpc: "gRPC",
+  graphql: "GraphQL",
+  websocket: "WebSocket",
+  event: "Event",
+  sql: "SQL",
+  tcp: "TCP",
+  other: "Other",
+}
+
+const EDGE_MODES = ["sync", "async"] as const
+
+type EdgeModeId = (typeof EDGE_MODES)[number]
+
 interface CanvasNodeData extends Record<string, unknown> {
   label: string
   color: NodeColorId
   shape: NodeShapeId
+  kind: NodeKindId
+  technology?: string
+  description?: string
 }
 
 interface CanvasEdgeData extends Record<string, unknown> {
   label: string
+  protocol?: EdgeProtocolId
+  mode?: EdgeModeId
 }
 
 /**
@@ -76,20 +143,34 @@ interface CanvasEdgeData extends Record<string, unknown> {
 type CanvasNode = Node<CanvasNodeData, "canvasNode">
 type CanvasEdge = Edge<CanvasEdgeData, "canvasEdge">
 
+interface CanvasGraph {
+  nodes: CanvasNode[]
+  edges: CanvasEdge[]
+}
+
 export {
   DEFAULT_NODE_COLOR,
+  DEFAULT_NODE_KIND,
   DEFAULT_NODE_SHAPE,
   DEFAULT_NODE_SIZES,
   EDGE_COLOR,
+  EDGE_MODES,
+  EDGE_PROTOCOL_LABELS,
+  EDGE_PROTOCOLS,
   NODE_COLORS,
+  NODE_KINDS,
   NODE_SHAPES,
 }
 export type {
   CanvasEdge,
   CanvasEdgeData,
+  CanvasGraph,
   CanvasNode,
   CanvasNodeData,
   CanvasNodeSize,
+  EdgeModeId,
+  EdgeProtocolId,
   NodeColorId,
+  NodeKindId,
   NodeShapeId,
 }

@@ -15,12 +15,18 @@ import {
 } from "@xyflow/react"
 
 import { cn } from "@/lib/utils"
-import { EDGE_COLOR, type CanvasEdge } from "@/types/canvas"
+import {
+  EDGE_COLOR,
+  EDGE_PROTOCOL_LABELS,
+  type CanvasEdge,
+} from "@/types/canvas"
 
 const EDGE_STROKE_WIDTH = 1.5
 /** Invisible hit area around the line, so a thin edge stays easy to grab. */
 const EDGE_INTERACTION_WIDTH = 24
 const EDGE_CORNER_RADIUS = 8
+/** Dash pattern that marks an asynchronous edge. */
+const ASYNC_EDGE_DASH = "6 4"
 
 interface CanvasEdgeRendererProps extends EdgeProps<CanvasEdge> {
   onLabelChange: (edgeId: string, label: string) => void
@@ -40,6 +46,14 @@ function CanvasEdgeRenderer({
   onLabelChange,
 }: CanvasEdgeRendererProps) {
   const label = data?.label ?? ""
+  // Indexed as a plain record: a room may hold a protocol this client does not
+  // know, which then simply shows no prefix.
+  const protocolLabel = data?.protocol
+    ? (EDGE_PROTOCOL_LABELS as Record<string, string | undefined>)[
+        data.protocol
+      ]
+    : undefined
+  const isAsync = data?.mode === "async"
   const [isHovered, setIsHovered] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [draftLabel, setDraftLabel] = useState("")
@@ -115,6 +129,7 @@ function CanvasEdgeRenderer({
             strokeWidth: EDGE_STROKE_WIDTH,
             strokeLinecap: "round",
             strokeLinejoin: "round",
+            strokeDasharray: isAsync ? ASYNC_EDGE_DASH : undefined,
           }}
         />
       </g>
@@ -149,11 +164,16 @@ function CanvasEdgeRenderer({
                 onKeyDown={handleEditorKeyDown}
               />
             </span>
-          ) : label ? (
+          ) : label || protocolLabel ? (
             <span
               className="pointer-events-auto block cursor-text whitespace-pre rounded-full border border-border-default bg-bg-elevated px-2 py-0.5 text-xs leading-4 text-copy-secondary"
               onDoubleClick={startEditing}
             >
+              {protocolLabel ? (
+                <span className="text-copy-muted">
+                  {label ? `${protocolLabel} · ` : protocolLabel}
+                </span>
+              ) : null}
               {label}
             </span>
           ) : (

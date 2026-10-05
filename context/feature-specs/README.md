@@ -4,7 +4,7 @@ Omega AI turns an idea or an existing repository into traceable requirements, re
 
 Specs 01–46 are the original incremental foundation; specs 47–65 are capability milestones, implemented as smaller reviewable sub-units recorded in the tracker. Numeric order is the default and dependencies are mandatory. Pull forward only the release-specific validation slices from 63–65 described below; do not mark their parent milestones complete early. Completed specs are historical; recorded implementation decisions explain their deviations.
 
-Read [the roadmap assessment](../roadmap-assessment.md) for findings and release boundaries, and [the shared agentic contracts](../agentic-platform-contracts.md) for state, identity, authority and verification rules. New specs are planned, not implemented. Current implementation is complete through 22, with 23 next.
+Read [the roadmap assessment](../roadmap-assessment.md) for findings and release boundaries, and [the shared agentic contracts](../agentic-platform-contracts.md) for state, identity, authority and verification rules. New specs are planned, not implemented. Current implementation is complete through 23, with 24 next.
 
 ## How an agent works through a spec
 
@@ -81,7 +81,7 @@ A checklist a reviewer can verify.
 
 ## Roadmap
 
-Specs 01–22 are complete (see `progress-tracker.md`).
+Specs 01–23 are complete (see `progress-tracker.md`).
 
 ### Phase 4 — Foundations and canvas durability
 

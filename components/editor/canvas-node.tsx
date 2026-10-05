@@ -6,9 +6,16 @@ import { NodeResizer, type NodeProps } from "@xyflow/react"
 import { CanvasNodeColorToolbar } from "@/components/editor/canvas-node-color-toolbar"
 import { CanvasNodeHandles } from "@/components/editor/canvas-node-handles"
 import { CanvasNodeShape } from "@/components/editor/canvas-node-shape"
+import { NodeKindIcon } from "@/components/editor/node-kind-icon"
 import { Textarea } from "@/components/ui/textarea"
+import { resolveNodeKind } from "@/lib/canvas-schema"
 import { cn } from "@/lib/utils"
-import { NODE_COLORS, type CanvasNode } from "@/types/canvas"
+import {
+  DEFAULT_NODE_KIND,
+  NODE_COLORS,
+  NODE_KINDS,
+  type CanvasNode,
+} from "@/types/canvas"
 
 const MIN_NODE_WIDTH = 96
 const MIN_NODE_HEIGHT = 56
@@ -28,6 +35,12 @@ function CanvasNodeRenderer({
   const color =
     NODE_COLORS.find((nodeColor) => nodeColor.id === data.color) ??
     NODE_COLORS[0]
+  // Rooms are never migrated, so a stored node may have no kind or one this
+  // client does not know; both draw as generic.
+  const kind = resolveNodeKind(data.kind)
+  const kindLabel = NODE_KINDS.find(({ id }) => id === kind)?.label
+  const technology =
+    typeof data.technology === "string" ? data.technology.trim() : ""
   const [isEditing, setIsEditing] = useState(false)
   const [draftLabel, setDraftLabel] = useState("")
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -86,7 +99,9 @@ function CanvasNodeRenderer({
         fill={color.fill}
         textColor={color.text}
         selected={selected}
-        labelClassName={isEditing ? "h-full w-full px-3 py-2" : undefined}
+        labelClassName={
+          isEditing ? "h-full w-full px-3 py-2" : "max-w-full min-w-0 px-4"
+        }
         label={
           isEditing ? (
             <Textarea
@@ -102,13 +117,29 @@ function CanvasNodeRenderer({
             />
           ) : (
             <span
-              className={cn(
-                "nodrag cursor-text",
-                !data.label && "text-copy-muted"
-              )}
+              className="nodrag flex max-w-full cursor-text flex-col items-center gap-0.5"
               onDoubleClick={startEditing}
             >
-              {data.label || "Add label"}
+              <span className="flex max-w-full items-start justify-center gap-1.5">
+                <NodeKindIcon kind={kind} className="mt-[3px] shrink-0" />
+                {kind !== DEFAULT_NODE_KIND ? (
+                  <span className="sr-only">{kindLabel}: </span>
+                ) : null}
+                <span
+                  className={cn(
+                    "min-w-0 break-words",
+                    technology ? "line-clamp-2" : "line-clamp-3",
+                    !data.label && "text-copy-muted"
+                  )}
+                >
+                  {data.label || "Add label"}
+                </span>
+              </span>
+              {technology ? (
+                <span className="max-w-full truncate text-xs text-copy-muted">
+                  {technology}
+                </span>
+              ) : null}
             </span>
           )
         }

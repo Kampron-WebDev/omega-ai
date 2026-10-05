@@ -54,6 +54,7 @@ import {
 } from "@/lib/canvas-drag"
 import {
   DEFAULT_NODE_COLOR,
+  DEFAULT_NODE_KIND,
   type CanvasEdge,
   type CanvasNode,
 } from "@/types/canvas"
@@ -279,6 +280,7 @@ function CanvasFlow({ ref }: CanvasFlowProps) {
           label: "",
           color: DEFAULT_NODE_COLOR,
           shape: payload.shape,
+          kind: DEFAULT_NODE_KIND,
         },
       }
 
