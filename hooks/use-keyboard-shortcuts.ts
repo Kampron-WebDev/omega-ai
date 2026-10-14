@@ -24,7 +24,10 @@ function isEditableTarget(target: EventTarget | null): boolean {
     target.isContentEditable ||
     target instanceof HTMLInputElement ||
     target instanceof HTMLTextAreaElement ||
-    target instanceof HTMLSelectElement
+    target instanceof HTMLSelectElement ||
+    // React Flow's opt-out class: panels such as the inspector, whose buttons
+    // and menus take keys the canvas should not act on.
+    target.closest(".nokey") !== null
   )
 }
 

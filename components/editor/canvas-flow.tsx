@@ -32,12 +32,17 @@ import {
   type EdgeTypes,
   type NodeTypes,
   type NodeProps,
+  type OnSelectionChangeParams,
   type ReactFlowInstance,
 } from "@xyflow/react"
 
 import { CanvasControls } from "@/components/editor/canvas-controls"
 import { CanvasCursors } from "@/components/editor/canvas-cursors"
 import { CanvasEdgeRenderer } from "@/components/editor/canvas-edge"
+import {
+  CanvasInspector,
+  type InspectorElement,
+} from "@/components/editor/canvas-inspector"
 import { CanvasNodeRenderer } from "@/components/editor/canvas-node"
 import { CanvasDragPreview } from "@/components/editor/canvas-drag-preview"
 import { CanvasShapePanel } from "@/components/editor/canvas-shape-panel"
@@ -52,6 +57,11 @@ import {
   parseCanvasShapeDragPayload,
   type CanvasShapeDragPayload,
 } from "@/lib/canvas-drag"
+import {
+  EMPTY_CANVAS_SELECTION,
+  getInspectorTarget,
+  type CanvasSelection,
+} from "@/lib/canvas-selection"
 import {
   DEFAULT_NODE_COLOR,
   DEFAULT_NODE_KIND,
@@ -70,6 +80,11 @@ interface CanvasFlowProps {
 }
 
 let nodeCounter = 0
+
+/** What a node is called in places that name it, such as an edge's endpoints. */
+function describeNode(node: CanvasNode | undefined): string {
+  return node?.data.label.trim() || "Untitled"
+}
 
 function createCanvasNodeId(shape: CanvasNode["data"]["shape"]): string {
   nodeCounter += 1
@@ -104,6 +119,9 @@ function CanvasFlow({ ref }: CanvasFlowProps) {
     payload: CanvasShapeDragPayload
     position: { x: number; y: number }
   } | null>(null)
+  const [selection, setSelection] = useState<CanvasSelection>(
+    EMPTY_CANVAS_SELECTION
+  )
 
   useEffect(() => {
     nodesRef.current = nodes
@@ -180,6 +198,53 @@ function CanvasFlow({ ref }: CanvasFlowProps) {
       }) satisfies EdgeTypes,
     [updateEdgeData]
   )
+
+  // Selection is local to each client; React Flow reports it after every
+  // change, including a selected element being deleted by someone else.
+  const handleSelectionChange = useCallback(
+    ({ nodes, edges }: OnSelectionChangeParams<CanvasNode, CanvasEdge>) => {
+      setSelection({
+        nodeIds: nodes.map(({ id }) => id),
+        edgeIds: edges.map(({ id }) => id),
+      })
+    },
+    []
+  )
+
+  const clearSelection = useCallback(() => {
+    onNodesChange(
+      nodesRef.current
+        .filter(({ selected }) => selected)
+        .map(({ id }) => ({ type: "select", id, selected: false }))
+    )
+    onEdgesChange(
+      edgesRef.current
+        .filter(({ selected }) => selected)
+        .map(({ id }) => ({ type: "select", id, selected: false }))
+    )
+  }, [onNodesChange, onEdgesChange])
+
+  // Read from the live arrays, not the selection payload, so a collaborator's
+  // edit shows in the inspector and a deleted element closes it.
+  const inspectorTarget = getInspectorTarget(selection)
+  let inspectorElement: InspectorElement | null = null
+
+  if (inspectorTarget?.type === "node") {
+    const node = nodes.find(({ id }) => id === inspectorTarget.id)
+
+    inspectorElement = node ? { type: "node", node } : null
+  } else if (inspectorTarget?.type === "edge") {
+    const edge = edges.find(({ id }) => id === inspectorTarget.id)
+
+    inspectorElement = edge
+      ? {
+          type: "edge",
+          edge,
+          sourceLabel: describeNode(nodes.find(({ id }) => id === edge.source)),
+          targetLabel: describeNode(nodes.find(({ id }) => id === edge.target)),
+        }
+      : null
+  }
 
   useKeyboardShortcuts({ flowInstance, undo, redo })
 
@@ -300,6 +365,7 @@ function CanvasFlow({ ref }: CanvasFlowProps) {
       onEdgesChange={onEdgesChange}
       onConnect={onConnect}
       onDelete={onDelete}
+      onSelectionChange={handleSelectionChange}
       onInit={setFlowInstance}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
@@ -312,6 +378,14 @@ function CanvasFlow({ ref }: CanvasFlowProps) {
       <Background variant={BackgroundVariant.Dots} />
       <MiniMap />
       <CanvasCursors />
+      {inspectorElement ? (
+        <CanvasInspector
+          element={inspectorElement}
+          onNodeChange={updateNodeData}
+          onEdgeChange={updateEdgeData}
+          onClose={clearSelection}
+        />
+      ) : null}
       <CanvasControls
         onZoomIn={() =>
           void flowInstance?.zoomIn({ duration: CANVAS_ZOOM_DURATION_MS })
